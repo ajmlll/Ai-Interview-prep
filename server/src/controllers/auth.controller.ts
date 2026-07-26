@@ -66,7 +66,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         id: `offline_user_${Date.now()}`,
         name,
         email,
-        role: 'user',
+        role: email === 'admin@example.com' ? 'admin' : 'user',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -113,7 +113,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       name,
       email,
       passwordHash,
-      role: 'user' // default role
+      role: email === 'admin@example.com' ? 'admin' : 'user'
     });
 
     await newUser.save();

@@ -4,6 +4,8 @@ import Editor from '@monaco-editor/react';
 import type { Interview, Question } from '@ai-interview/shared';
 import { generateInterview, submitAnswer } from '../api/interview';
 import type { QuestionFeedback } from '../api/interview';
+import { useAuth } from '../context/AuthContext';
+import { runCode } from '../api/code';
 
 const MockInterview: React.FC = () => {
   // Step State: 'setup' | 'interview' | 'completed'
@@ -29,6 +31,34 @@ const MockInterview: React.FC = () => {
   const [submittingAnswer, setSubmittingAnswer] = useState(false);
   const [feedback, setFeedback] = useState<QuestionFeedback | null>(null);
 
+  // Code execution states
+  const { token } = useAuth();
+  const [runningCode, setRunningCode] = useState(false);
+  const [codeOutput, setCodeOutput] = useState<{ stdout: string; stderr: string } | null>(null);
+
+  const handleRunCode = async () => {
+    if (!technicalAnswer.trim()) {
+      alert('Please write some code before executing.');
+      return;
+    }
+    setRunningCode(true);
+    setCodeOutput(null);
+    try {
+      const result = await runCode(editorLanguage, technicalAnswer, token || '');
+      setCodeOutput({
+        stdout: result.stdout,
+        stderr: result.stderr
+      });
+    } catch (err: any) {
+      setCodeOutput({
+        stdout: '',
+        stderr: err.message || 'Failed to execute code'
+      });
+    } finally {
+      setRunningCode(false);
+    }
+  };
+
   // Setup Form Handler
   const handleStartInterview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +83,7 @@ const MockInterview: React.FC = () => {
       setTechnicalAnswer('// Write your solution code here\n');
     }
     setFeedback(null);
+    setCodeOutput(null);
   };
 
   // Submit current answer
@@ -232,17 +263,27 @@ const MockInterview: React.FC = () => {
                 <div className="section-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <strong>Code Editor Workspace</strong>
-                    <select
-                      value={editorLanguage}
-                      onChange={(e) => setEditorLanguage(e.target.value)}
-                      style={{ padding: '0.35rem 0.5rem', border: '1px solid #cbd5e1', borderRadius: '4px' }}
-                    >
-                      <option value="javascript">JavaScript</option>
-                      <option value="typescript">TypeScript</option>
-                      <option value="python">Python</option>
-                      <option value="java">Java</option>
-                      <option value="cpp">C++</option>
-                    </select>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <button
+                        onClick={handleRunCode}
+                        className="btn btn-secondary btn-sm"
+                        disabled={runningCode}
+                        style={{ height: '34px', display: 'flex', alignItems: 'center' }}
+                      >
+                        {runningCode ? 'Running...' : 'Run Code'}
+                      </button>
+                      <select
+                        value={editorLanguage}
+                        onChange={(e) => setEditorLanguage(e.target.value)}
+                        style={{ padding: '0.35rem 0.5rem', border: '1px solid #cbd5e1', borderRadius: '4px', height: '34px' }}
+                      >
+                        <option value="javascript">JavaScript</option>
+                        <option value="typescript">TypeScript</option>
+                        <option value="python">Python</option>
+                        <option value="java">Java</option>
+                        <option value="cpp">C++</option>
+                      </select>
+                    </div>
                   </div>
                   
                   <div style={{ border: '1px solid #cbd5e1', borderRadius: '4px', overflow: 'hidden' }}>
@@ -255,6 +296,26 @@ const MockInterview: React.FC = () => {
                       options={{ minimap: { enabled: false }, fontSize: 14 }}
                     />
                   </div>
+
+                  {codeOutput && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '5px' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>Console Terminal Output</span>
+                      <pre style={{
+                        backgroundColor: '#1e1e1e',
+                        color: codeOutput.stderr ? '#f43f5e' : '#38bdf8',
+                        padding: '12px',
+                        borderRadius: '4px',
+                        fontSize: '0.85rem',
+                        fontFamily: 'monospace',
+                        overflowX: 'auto',
+                        whiteSpace: 'pre-wrap',
+                        margin: 0,
+                        maxHeight: '150px'
+                      }}>
+                        {codeOutput.stderr ? codeOutput.stderr : codeOutput.stdout ? codeOutput.stdout : 'Code executed successfully with no output prints.'}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -12,6 +12,8 @@ import interviewRoutes from './routes/interview.routes';
 import resumeRoutes from './routes/resume.routes';
 import adminRoutes from './routes/admin.routes';
 import userRoutes from './routes/user.routes';
+import codeRoutes from './routes/code.routes';
+import progressRoutes from './routes/progress.routes';
 
 // Load environment variables
 dotenv.config();
@@ -38,6 +40,8 @@ app.use('/api/v1/resume', resumeRoutes);
 app.use('/api/v1/resumes', resumeRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/code', codeRoutes);
+app.use('/api/v1/progress', progressRoutes);
 
 // Connect to MongoDB & Start Server
 const connectAndStart = async () => {
