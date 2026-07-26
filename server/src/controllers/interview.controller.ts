@@ -41,6 +41,36 @@ const buildMockQuestions = (role: string, level: string, techStack: string): Que
       text: `How do you resolve conflict with product managers when negotiating scope changes or deadlines? Describe a real example.`,
       category: 'Behavioral',
       difficulty: diff
+    },
+    {
+      id: 'q_6',
+      text: `Compare REST APIs vs GraphQL for a large-scale data-heavy ${role} application. When would you choose one over the other?`,
+      category: 'Technical',
+      difficulty: diff
+    },
+    {
+      id: 'q_7',
+      text: `Design a distributed caching and cache-invalidation layer using Redis for high-frequency database read operations.`,
+      category: 'System Design',
+      difficulty: diff
+    },
+    {
+      id: 'q_8',
+      text: `How do database indexes (B-Trees vs Hash indexes) improve query performance? What are the write performance trade-offs?`,
+      category: 'Technical',
+      difficulty: diff
+    },
+    {
+      id: 'q_9',
+      text: `Describe a scenario where a critical bug reached production under your watch. How did you triage, fix, and conduct the post-mortem?`,
+      category: 'Behavioral',
+      difficulty: diff
+    },
+    {
+      id: 'q_10',
+      text: `Explain web application security fundamentals: how do CSRF, XSS, and CORS work, and how do you secure JWT storage?`,
+      category: 'Technical',
+      difficulty: diff
     }
   ];
 };
