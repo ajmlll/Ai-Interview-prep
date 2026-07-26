@@ -25,9 +25,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (response.success && response.data) {
           setUser(response.data.user);
           setToken(response.data.token);
+          localStorage.setItem('accessToken', response.data.token);
         }
       } catch (err) {
         console.log('No existing session to restore:', err);
+        localStorage.removeItem('accessToken');
       } finally {
         setLoading(false);
       }
@@ -42,9 +44,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.success && response.data) {
         setUser(response.data.user);
         setToken(response.data.token);
+        localStorage.setItem('accessToken', response.data.token);
         
         if (rememberMe) {
-          // Set cookie for 7 days
           document.cookie = `remember_me=true; Max-Age=${7 * 24 * 60 * 60}; path=/`;
         } else {
           document.cookie = 'remember_me=; Max-Age=0; path=/';
@@ -62,6 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.success && response.data) {
         setUser(response.data.user);
         setToken(response.data.token);
+        localStorage.setItem('accessToken', response.data.token);
       }
     } finally {
       setLoading(false);
@@ -74,6 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await authApi.logout();
       setUser(null);
       setToken(null);
+      localStorage.removeItem('accessToken');
     } finally {
       setLoading(false);
     }

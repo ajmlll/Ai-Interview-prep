@@ -1,3 +1,5 @@
+import { apiRequest } from './client';
+
 export interface CodeRunResult {
   success: boolean;
   stdout: string;
@@ -8,33 +10,21 @@ export interface CodeRunResult {
 export const runCode = async (
   language: string,
   code: string,
-  token: string
+  _token?: string  // kept for signature compatibility — client.ts reads from localStorage
 ): Promise<CodeRunResult> => {
   try {
-    const response = await fetch('http://localhost:5000/api/v1/code/run', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ language, code })
-    });
-
-    const result = await response.json();
-    
-    if (!response.ok) {
-      return {
-        success: false,
-        stdout: '',
-        stderr: result.message || 'Execution failed',
-        error: result.message || 'HTTP error'
-      };
-    }
+    const result = await apiRequest<{ stdout: string; stderr: string; output: string }>(
+      '/code/run',
+      {
+        method: 'POST',
+        body: JSON.stringify({ language, code })
+      }
+    );
 
     return {
       success: true,
-      stdout: result.data.stdout || '',
-      stderr: result.data.stderr || ''
+      stdout: result.data?.stdout || '',
+      stderr: result.data?.stderr || ''
     };
   } catch (err: any) {
     return {
