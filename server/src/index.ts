@@ -1,8 +1,11 @@
+import * as dotenv from 'dotenv';
+// Load environment variables before any submodule imports
+dotenv.config();
+
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import helmet from 'helmet';
-import * as dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 
 // Import routes
@@ -22,9 +25,6 @@ import {
   authRateLimiter,
   interviewRateLimiter
 } from './middlewares/error.middleware';
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -55,6 +55,7 @@ app.use('/api/v1/auth', authRateLimiter, authRoutes);
 
 // Interviews: apply per-session rate limit on generation
 app.use('/api/v1/interviews', interviewRateLimiter, interviewRoutes);
+app.use('/api/v1/interview', interviewRateLimiter, interviewRoutes);
 app.use('/api/v1/resume', resumeRoutes);
 app.use('/api/v1/resumes', resumeRoutes);
 app.use('/api/v1/admin', adminRoutes);

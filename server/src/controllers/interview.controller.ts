@@ -11,13 +11,45 @@ import type { Question } from '@ai-interview/shared';
 // In-memory fallback store for offline mode
 const offlineInterviews: any[] = [];
 
-// Helper to check if a valid OpenAI API Key is configured
+// Helper to check if a valid OpenAI / Gemini API Key is configured
 const isOpenAiConfigured = (): boolean => {
   const key = process.env.OPENAI_API_KEY;
   return Boolean(key && key.trim() !== '' && key !== 'your_openai_api_key_here');
 };
 
-// Helper: generate mock questions when OpenAI is unconfigured or offline
+// Helper: Initialize OpenAI SDK with custom baseURL (e.g. Gemini OpenAI-compatible endpoint)
+const getAiClient = (): OpenAI => {
+  const apiKey = process.env.OPENAI_API_KEY || '';
+  const baseURL = process.env.OPENAI_BASE_URL || undefined;
+  return new OpenAI({
+    apiKey,
+    ...(baseURL ? { baseURL } : {})
+  });
+};
+
+// Helper: Exponential backoff retry wrapper for AI calls (handles 429 rate limit spikes)
+const callWithRetry = async <T>(
+  fn: () => Promise<T>,
+  delays: number[] = [1000, 2000, 4000]
+): Promise<T> => {
+  let lastError: any;
+  for (let i = 0; i <= delays.length; i++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`[AI Call Attempt ${i + 1} Failed]: ${err.message || err}`);
+      if (i < delays.length) {
+        const delayMs = delays[i];
+        console.log(`Retrying AI call in ${delayMs}ms...`);
+        await new Promise(res => setTimeout(res, delayMs));
+      }
+    }
+  }
+  throw lastError;
+};
+
+// Helper: generate mock questions when AI is unconfigured or offline
 const buildMockQuestions = (role: string, level: string, techStack: string): Question[] => {
   const diff: 'easy' | 'medium' | 'hard' =
     level === 'senior' ? 'hard' : level === 'mid' ? 'medium' : 'easy';
@@ -86,7 +118,7 @@ const buildMockQuestions = (role: string, level: string, techStack: string): Que
   ];
 };
 
-// Generate questions via OpenAI (or Redis Cache fallback)
+// Generate questions via AI (or Redis Cache fallback)
 const generateQuestionsWithAI = async (
   role: string,
   level: string,
@@ -106,8 +138,10 @@ const generateQuestionsWithAI = async (
     console.warn('Redis cache lookup skipped:', err);
   }
 
-  // 2. Query OpenAI API
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  // 2. Query AI API using configured model and OpenAI-compatible endpoint
+  const openai = getAiClient();
+  const model = process.env.AI_MODEL || 'gemini-2.5-flash-lite';
+
   const prompt = `Generate exactly 10 interview questions for a candidate applying for role: "${role}", experience level: "${level}", tech stack: "${techStack}".
 ${resumeText ? `Candidate Resume Context: "${resumeText.slice(0, 1500)}"` : ''}
 
@@ -123,21 +157,25 @@ Respond ONLY with a valid JSON object matching this TypeScript format:
   ]
 }`;
 
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      { role: 'system', content: 'You are a senior technical interviewer. Always return responses in structured JSON.' },
-      { role: 'user', content: prompt }
-    ],
-    response_format: { type: 'json_object' }
-  });
+  console.log(`Sending question generation request to AI model: "${model}"...`);
+
+  const completion = await callWithRetry(() =>
+    openai.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: 'You are a senior technical interviewer. Always return responses in structured JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      response_format: { type: 'json_object' }
+    })
+  );
 
   const content = completion.choices[0]?.message?.content || '{}';
   const parsed = JSON.parse(content);
   const questions: Question[] = parsed.questions || [];
 
   if (!questions.length) {
-    throw new Error('OpenAI returned invalid questions structure');
+    throw new Error('AI returned invalid questions structure');
   }
 
   // Ensure unique IDs
@@ -156,12 +194,14 @@ Respond ONLY with a valid JSON object matching this TypeScript format:
   return formatted;
 };
 
-// Evaluate answer via OpenAI
+// Evaluate answer via AI
 const evaluateAnswerWithAI = async (
   questionText: string,
   userAnswer: string
 ): Promise<{ correctnessScore: number; clarityScore: number; feedbackText: string; suggestedImprovement: string }> => {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const openai = getAiClient();
+  const model = process.env.AI_MODEL || 'gemini-2.5-flash-lite';
+
   const prompt = `Evaluate the candidate's interview answer:
 Question: "${questionText}"
 Candidate Answer: "${userAnswer}"
@@ -172,20 +212,24 @@ Return ONLY a JSON object with:
 - "feedbackText": string summarizing key strengths & weaknesses
 - "suggestedImprovement": string offering concise actionable tips`;
 
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      { role: 'system', content: 'You are an expert technical interviewer evaluating candidates. Respond ONLY in valid JSON.' },
-      { role: 'user', content: prompt }
-    ],
-    response_format: { type: 'json_object' }
-  });
+  console.log(`Sending answer evaluation request to AI model: "${model}"...`);
+
+  const completion = await callWithRetry(() =>
+    openai.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: 'You are an expert technical interviewer evaluating candidates. Respond ONLY in valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      response_format: { type: 'json_object' }
+    })
+  );
 
   const content = completion.choices[0]?.message?.content || '{}';
   return JSON.parse(content);
 };
 
-// POST /api/v1/interviews — generate questions, create session
+// POST /api/v1/interviews & POST /api/v1/interview/generate — generate questions, create session
 export const createInterview = async (req: Request, res: Response): Promise<void> => {
   try {
     const { role, level, techStack, useResume } = req.body;
@@ -205,16 +249,21 @@ export const createInterview = async (req: Request, res: Response): Promise<void
     let questions: Question[];
     if (isOpenAiConfigured()) {
       try {
-        console.log('Generating interview questions using OpenAI API...');
+        console.log(`Generating interview questions using AI Model (${process.env.AI_MODEL || 'gemini-2.5-flash-lite'})...`);
         questions = await generateQuestionsWithAI(
           role || 'Software Engineer',
           level || 'mid',
           techStack || 'React, Node.js',
           resumeText
         );
-      } catch (err) {
-        console.error('OpenAI question generation error. Falling back to mock generator:', err);
-        questions = buildMockQuestions(role || 'Software Engineer', level || 'mid', techStack || 'React, Node.js');
+      } catch (err: any) {
+        console.error('AI question generation error after retries:', err.message || err);
+        res.status(502).json({
+          success: false,
+          message: `AI generation failed: ${err.message || 'Error communicating with AI service'}`,
+          data: null
+        });
+        return;
       }
     } else {
       console.log('OPENAI_API_KEY not configured. Using default 10-question template generator.');
@@ -258,7 +307,7 @@ export const createInterview = async (req: Request, res: Response): Promise<void
   }
 };
 
-// POST /api/v1/interviews/:id/submit — evaluate a single answer
+// POST /api/v1/interviews/:id/submit & POST /api/v1/interview/:id/answer — evaluate a single answer
 export const submitInterview = async (req: Request, res: Response): Promise<void> => {
   try {
     const { questionId, answerText } = req.body;
@@ -268,7 +317,7 @@ export const submitInterview = async (req: Request, res: Response): Promise<void
 
     if (isOpenAiConfigured()) {
       try {
-        console.log(`Evaluating answer for question ${questionId} using OpenAI API...`);
+        console.log(`Evaluating answer for question ${questionId} using AI API...`);
         let questionText = 'Technical interview question';
         if (mongoose.connection.readyState === 1) {
           const interviewDoc = await InterviewModel.findById(req.params.id);
@@ -277,16 +326,14 @@ export const submitInterview = async (req: Request, res: Response): Promise<void
         }
 
         feedback = await evaluateAnswerWithAI(questionText, answerText || '');
-      } catch (err) {
-        console.error('OpenAI evaluation failed. Falling back to deterministic scoring:', err);
-        const correctnessScore = Math.min(65 + Math.floor(Math.random() * 25) + (answerLen > 50 ? 10 : 0), 100);
-        const clarityScore = Math.min(70 + Math.floor(Math.random() * 20) + (answerLen > 100 ? 10 : 0), 100);
-        feedback = {
-          correctnessScore,
-          clarityScore,
-          feedbackText: 'Your answer is structured reasonably and covers key architectural/methodological highlights correctly.',
-          suggestedImprovement: 'Consider elaborating on specific design trade-offs, metrics (e.g. throughput gains), and fallback options.'
-        };
+      } catch (err: any) {
+        console.error('AI evaluation failed after retries:', err.message || err);
+        res.status(502).json({
+          success: false,
+          message: `AI answer evaluation failed: ${err.message || 'Error communicating with AI service'}`,
+          data: null
+        });
+        return;
       }
     } else {
       const correctnessScore = Math.min(65 + Math.floor(Math.random() * 25) + (answerLen > 50 ? 10 : 0), 100);

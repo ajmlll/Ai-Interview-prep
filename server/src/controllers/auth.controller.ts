@@ -20,16 +20,16 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters')
 });
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_jwt_secret_key_123';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'fallback_jwt_refresh_secret_key_456';
 const REFRESH_TOKEN_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
 
 // Helper to generate access & refresh tokens
 const generateTokenPair = (userId: string, email: string, role: string) => {
   const payload = { id: userId, email, role };
+  const secret = process.env.JWT_SECRET || 'fallback_jwt_secret_key_123';
+  const refreshSecret = process.env.JWT_REFRESH_SECRET || 'fallback_jwt_refresh_secret_key_456';
   
-  const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' });
-  const refreshToken = jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: '7d' });
+  const accessToken = jwt.sign(payload, secret, { expiresIn: '15m' });
+  const refreshToken = jwt.sign(payload, refreshSecret, { expiresIn: '7d' });
   
   return { accessToken, refreshToken };
 };
@@ -277,7 +277,8 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Decode refresh token
-    jwt.verify(refreshToken, JWT_REFRESH_SECRET, async (err: any, decoded: any) => {
+    const refreshSecret = process.env.JWT_REFRESH_SECRET || 'fallback_jwt_refresh_secret_key_456';
+    jwt.verify(refreshToken, refreshSecret, async (err: any, decoded: any) => {
       if (err || !decoded) {
         res.status(401).json({
           success: false,
