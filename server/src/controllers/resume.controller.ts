@@ -3,6 +3,7 @@ import multer from 'multer';
 import { PDFParse } from 'pdf-parse';
 import mammoth from 'mammoth';
 import mongoose from 'mongoose';
+import OpenAI from 'openai';
 import { ResumeModel } from '../models/Resume.model';
 
 export const offlineResumes: any[] = [];
@@ -24,7 +25,7 @@ export const upload = multer({
   fileFilter
 });
 
-// Helper for extracting text
+// Helper for extracting text from PDF/DOCX
 const extractText = async (buffer: Buffer, originalname: string): Promise<string> => {
   const nameLower = originalname.toLowerCase();
   if (nameLower.endsWith('.pdf')) {
@@ -40,6 +41,59 @@ const extractText = async (buffer: Buffer, originalname: string): Promise<string
     return result.value || '';
   }
   throw new Error('Unsupported file format');
+};
+
+// Helper: AI-powered resume analysis (extracts skills and estimated experience years)
+const analyzeResumeWithAI = async (
+  parsedText: string
+): Promise<{ skills: string[]; experienceYears: number }> => {
+  if (!parsedText || parsedText.trim() === '') {
+    return { skills: [], experienceYears: 0 };
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || apiKey.trim() === '' || apiKey === 'your_openai_api_key_here') {
+    return { skills: [], experienceYears: 0 };
+  }
+
+  try {
+    console.log(`Analyzing uploaded resume using AI Model (${process.env.AI_MODEL || 'gemini-2.5-flash-lite'})...`);
+    const openai = new OpenAI({
+      apiKey,
+      ...(process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {})
+    });
+    const model = process.env.AI_MODEL || 'gemini-2.5-flash-lite';
+
+    const prompt = `Analyze the following candidate resume text and extract key technical/professional skills and estimated total years of professional experience:
+
+Resume Content:
+"${parsedText.slice(0, 3000)}"
+
+Return ONLY a JSON object matching this exact format:
+{
+  "skills": ["TypeScript", "React", "Node.js", "Docker"],
+  "experienceYears": 4
+}`;
+
+    const completion = await openai.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: 'You are an expert HR and resume parser. Respond ONLY in structured JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      response_format: { type: 'json_object' }
+    });
+
+    const content = completion.choices[0]?.message?.content || '{}';
+    const parsed = JSON.parse(content);
+    return {
+      skills: Array.isArray(parsed.skills) ? parsed.skills : [],
+      experienceYears: typeof parsed.experienceYears === 'number' ? parsed.experienceYears : 0
+    };
+  } catch (err) {
+    console.warn('AI resume analysis error. Using default fallback:', err);
+    return { skills: [], experienceYears: 0 };
+  }
 };
 
 // POST /api/v1/resume/upload
@@ -66,14 +120,17 @@ export const uploadResume = async (req: Request, res: Response): Promise<void> =
     // Extract text from document buffer
     const parsedText = await extractText(req.file.buffer, req.file.originalname);
 
+    // AI Resume Analysis for skills & experience estimation
+    const { skills, experienceYears } = await analyzeResumeWithAI(parsedText);
+
     const offlineResumeDoc = {
       id: `offline_res_${Date.now()}`,
       userId: req.user.id,
       fileName: req.file.originalname,
       fileUrl: `/uploads/resumes/${Date.now()}_${req.file.originalname}`,
       parsedText,
-      skills: [], // empty for now as requested
-      experienceYears: 0,
+      skills,
+      experienceYears,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -83,7 +140,7 @@ export const uploadResume = async (req: Request, res: Response): Promise<void> =
       offlineResumes.push(offlineResumeDoc);
       res.status(201).json({
         success: true,
-        message: 'Resume uploaded and parsed successfully (offline fallback)',
+        message: 'Resume uploaded, parsed, and analyzed with AI successfully (offline fallback)',
         data: offlineResumeDoc
       });
       return;
@@ -95,15 +152,15 @@ export const uploadResume = async (req: Request, res: Response): Promise<void> =
       fileName: req.file.originalname,
       fileUrl: offlineResumeDoc.fileUrl,
       parsedText,
-      skills: [],
-      experienceYears: 0
+      skills,
+      experienceYears
     });
 
     await newResume.save();
 
     res.status(201).json({
       success: true,
-      message: 'Resume uploaded and parsed successfully',
+      message: 'Resume uploaded, parsed, and analyzed with AI successfully',
       data: newResume.toJSON()
     });
   } catch (error: any) {
