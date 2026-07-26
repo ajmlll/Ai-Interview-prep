@@ -42,10 +42,10 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="quick-start-card">
-          <h4>📄 Resume Workspace</h4>
-          <p>Upload PDF/DOCX resumes for automated text parsing and skill extraction.</p>
+          <h4>📄 Resume Studio & AI Audit</h4>
+          <p>Upload PDF/DOCX resumes, run instant ATS score audits, and get high-impact AI bullet rewrites.</p>
           <Link to="/resume" className="btn btn-primary btn-sm" style={{ width: 'fit-content', marginTop: '10px' }}>
-            Upload Resume
+            Open Resume Studio
           </Link>
         </div>
 
@@ -54,14 +54,6 @@ const Dashboard: React.FC = () => {
           <p>Paste target job postings to compute Match Score %, find missing keywords, and launch tailored prep.</p>
           <Link to="/jd-analyzer" className="btn btn-primary btn-sm" style={{ width: 'fit-content', marginTop: '10px' }}>
             Analyze Job Posting
-          </Link>
-        </div>
-
-        <div className="quick-start-card">
-          <h4>💡 AI Resume Score & Audit</h4>
-          <p>Evaluate ATS readability, impact metrics, and grammar with AI bullet point rewrites.</p>
-          <Link to="/resume-score" className="btn btn-primary btn-sm" style={{ width: 'fit-content', marginTop: '10px' }}>
-            Audit My CV
           </Link>
         </div>
 

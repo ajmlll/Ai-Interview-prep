@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ResumeDoc } from '@ai-interview/shared';
-import { uploadResume, getMyResume } from '../api/resume';
+import { uploadResume, getMyResume, getResumeAudit, type ResumeAuditResult } from '../api/resume';
 
 const Resume: React.FC = () => {
   const navigate = useNavigate();
@@ -10,6 +10,11 @@ const Resume: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [uploadedResume, setUploadedResume] = useState<ResumeDoc | null>(null);
   const [loadingInitial, setLoadingInitial] = useState(true);
+
+  // AI Audit states
+  const [auditing, setAuditing] = useState(false);
+  const [auditResult, setAuditResult] = useState<ResumeAuditResult | null>(null);
+  const [auditError, setAuditError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,6 +45,7 @@ const Resume: React.FC = () => {
   const validateAndUpload = async (file: File) => {
     setErrorMsg(null);
     setUploadedResume(null);
+    setAuditResult(null);
 
     const validExtensions = ['.pdf', '.docx'];
     const fileNameLower = file.name.toLowerCase();
@@ -86,10 +92,28 @@ const Resume: React.FC = () => {
     }
   };
 
+  const handleRunAudit = async () => {
+    if (!uploadedResume) {
+      setAuditError('Please upload a resume first.');
+      return;
+    }
+
+    setAuditError(null);
+    setAuditing(true);
+    try {
+      const data = await getResumeAudit();
+      setAuditResult(data);
+    } catch (err: any) {
+      setAuditError(err.message || 'Failed to run AI Resume Audit.');
+    } finally {
+      setAuditing(false);
+    }
+  };
+
   if (loadingInitial) {
     return (
       <div className="page-container" style={{ textAlign: 'center', padding: '4rem 0' }}>
-        <p>Loading resume details...</p>
+        <p>Loading resume studio...</p>
       </div>
     );
   }
@@ -97,8 +121,8 @@ const Resume: React.FC = () => {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>📄 Resume Workspace</h1>
-        <p>Upload your CV (PDF or DOCX) for automated text parsing, experience calculation, and skill extraction.</p>
+        <h1>📄 Resume Studio & AI Audit</h1>
+        <p>Upload your CV (PDF or DOCX) for text parsing, skill extraction, ATS readability scoring, and high-impact AI bullet rewrites.</p>
       </div>
 
       {errorMsg && (
@@ -190,9 +214,19 @@ const Resume: React.FC = () => {
                 </div>
               </div>
 
-              <button onClick={() => setUploadedResume(null)} className="btn btn-secondary" style={{ marginTop: 'auto', width: 'fit-content' }}>
-                Upload New Resume
-              </button>
+              <div style={{ display: 'flex', gap: '10px', marginTop: 'auto', flexWrap: 'wrap' }}>
+                <button
+                  onClick={handleRunAudit}
+                  disabled={auditing}
+                  className="btn btn-primary"
+                  style={{ flex: 1 }}
+                >
+                  {auditing ? 'Auditing with Gemini AI...' : '💡 Run AI Score Audit'}
+                </button>
+                <button onClick={() => setUploadedResume(null)} className="btn btn-secondary">
+                  Change File
+                </button>
+              </div>
             </div>
 
             <div className="section-card" style={{ display: 'flex', flexDirection: 'column', height: '400px' }}>
@@ -203,6 +237,76 @@ const Resume: React.FC = () => {
             </div>
           </div>
 
+          {/* AI Audit Results Breakdown */}
+          {auditError && (
+            <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '12px 15px', borderRadius: '6px', border: '1px solid #fca5a5', marginBottom: '1.5rem' }}>
+              {auditError}
+            </div>
+          )}
+
+          {auditResult && (
+            <div className="page-container" style={{ marginBottom: '2rem', animation: 'fadeIn 0.3s ease-in' }}>
+              <div className="stats-grid">
+                <div className="stat-card" style={{ borderTop: '4px solid #0284c7' }}>
+                  <h3>Overall Resume Score</h3>
+                  <div className="stat-number" style={{ color: '#0284c7' }}>{auditResult.overallScore} / 100</div>
+                </div>
+
+                <div className="stat-card" style={{ borderTop: '4px solid #16a34a' }}>
+                  <h3>ATS Readability Score</h3>
+                  <div className="stat-number" style={{ color: '#16a34a' }}>{auditResult.atsScore}%</div>
+                </div>
+
+                <div className="stat-card" style={{ borderTop: '4px solid #d97706' }}>
+                  <h3>Impact & Metrics Score</h3>
+                  <div className="stat-number" style={{ color: '#d97706' }}>{auditResult.impactScore}%</div>
+                </div>
+
+                <div className="stat-card" style={{ borderTop: '4px solid #9333ea' }}>
+                  <h3>Grammar & Tone Score</h3>
+                  <div className="stat-number" style={{ color: '#9333ea' }}>{auditResult.grammarScore}%</div>
+                </div>
+              </div>
+
+              <div className="grid-2col">
+                <div className="section-card" style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                  <h3 style={{ color: '#166534', marginTop: 0 }}>✅ Key Strengths</h3>
+                  <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#14532d', lineHeight: 1.6 }}>
+                    {auditResult.strengths.map((str, idx) => (
+                      <li key={idx} style={{ marginBottom: '0.5rem' }}>{str}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="section-card" style={{ backgroundColor: '#fffbebfb', border: '1px solid #fde047' }}>
+                  <h3 style={{ color: '#92400e', marginTop: 0 }}>⚠️ Areas to Improve</h3>
+                  <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#78350f', lineHeight: 1.6 }}>
+                    {auditResult.improvements.map((imp, idx) => (
+                      <li key={idx} style={{ marginBottom: '0.5rem' }}>{imp}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {auditResult.suggestedRewrites?.length > 0 && (
+                <div className="section-card">
+                  <h3 style={{ marginTop: 0 }}>✨ High-Impact AI Bullet Point Rewrites</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {auditResult.suggestedRewrites.map((item, idx) => (
+                      <div key={idx} style={{ padding: '1rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+                        <div style={{ fontSize: '0.85rem', color: '#dc2626', fontWeight: 'bold', marginBottom: '0.25rem' }}>Original Line:</div>
+                        <div style={{ color: '#64748b', textDecoration: 'line-through', marginBottom: '0.75rem', fontSize: '0.95rem' }}>{item.original}</div>
+                        
+                        <div style={{ fontSize: '0.85rem', color: '#16a34a', fontWeight: 'bold', marginBottom: '0.25rem' }}>High-Impact AI Version:</div>
+                        <div style={{ color: '#0f172a', fontWeight: '600', fontSize: '0.95rem' }}>{item.improved}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Quick Action Navigation Grid */}
           <div className="quick-start-grid">
             <div className="quick-start-card">
@@ -210,14 +314,6 @@ const Resume: React.FC = () => {
               <p>Compare this resume against a target Job Description to compute your Match Score % and missing keywords.</p>
               <button onClick={() => navigate('/jd-analyzer')} className="btn btn-primary btn-sm" style={{ width: 'fit-content', marginTop: '10px' }}>
                 Open JD Match Analyzer
-              </button>
-            </div>
-
-            <div className="quick-start-card">
-              <h4>💡 Comprehensive AI Resume Audit</h4>
-              <p>Run ATS readability checks, metric impact scoring, and get high-impact bullet point rewrites.</p>
-              <button onClick={() => navigate('/resume-score')} className="btn btn-primary btn-sm" style={{ width: 'fit-content', marginTop: '10px' }}>
-                Run AI Audit
               </button>
             </div>
 

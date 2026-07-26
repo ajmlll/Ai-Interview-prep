@@ -6,7 +6,6 @@ import Register from './pages/Register';
 import MockInterview from './pages/MockInterview';
 import Resume from './pages/Resume';
 import JdAnalyzer from './pages/JdAnalyzer';
-import ResumeScore from './pages/ResumeScore';
 import CoverLetter from './pages/CoverLetter';
 import AdminDashboard from './pages/AdminDashboard';
 import Progress from './pages/Progress';
@@ -55,13 +54,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <span>🎙️</span> Mock Interview
           </Link>
           <Link to="/resume" className={isActive('/resume')}>
-            <span>📄</span> Resume Workspace
+            <span>📄</span> Resume Studio & Audit
           </Link>
           <Link to="/jd-analyzer" className={isActive('/jd-analyzer')}>
             <span>🎯</span> JD Match & ATS
-          </Link>
-          <Link to="/resume-score" className={isActive('/resume-score')}>
-            <span>💡</span> AI Resume Audit
           </Link>
           <Link to="/cover-letter" className={isActive('/cover-letter')}>
             <span>✉️</span> Cover Letter & Outreach
@@ -114,7 +110,6 @@ function AppContent() {
       <Route path="/mock-interview" element={<RequireAuth><Layout><MockInterview /></Layout></RequireAuth>} />
       <Route path="/resume" element={<RequireAuth><Layout><Resume /></Layout></RequireAuth>} />
       <Route path="/jd-analyzer" element={<RequireAuth><Layout><JdAnalyzer /></Layout></RequireAuth>} />
-      <Route path="/resume-score" element={<RequireAuth><Layout><ResumeScore /></Layout></RequireAuth>} />
       <Route path="/cover-letter" element={<RequireAuth><Layout><CoverLetter /></Layout></RequireAuth>} />
       <Route path="/progress" element={<RequireAuth><Layout><Progress /></Layout></RequireAuth>} />
       <Route path="/admin" element={<RequireAuth><Layout><AdminDashboard /></Layout></RequireAuth>} />
