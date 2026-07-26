@@ -9,6 +9,23 @@ export interface JDAnalysisResult {
   tailoredRecommendations: string[];
 }
 
+export interface ResumeAuditResult {
+  overallScore: number;
+  atsScore: number;
+  brevityScore: number;
+  impactScore: number;
+  grammarScore: number;
+  strengths: string[];
+  improvements: string[];
+  suggestedRewrites: Array<{ original: string; improved: string }>;
+}
+
+export interface CoverLetterResult {
+  coverLetter: string;
+  coldEmail: string;
+  subjectLine: string;
+}
+
 export const uploadResume = async (
   file: File,
   onProgress: (progress: number) => void
@@ -44,6 +61,31 @@ export const analyzeJobDescription = async (jobDescription: string): Promise<JDA
 
   if (!result.data) {
     throw new Error(result.message || 'Failed to analyze Job Description');
+  }
+
+  return result.data;
+};
+
+export const getResumeAudit = async (): Promise<ResumeAuditResult> => {
+  const result = await apiRequest<ResumeAuditResult>('/resume/score', {
+    method: 'POST'
+  });
+
+  if (!result.data) {
+    throw new Error(result.message || 'Failed to audit resume');
+  }
+
+  return result.data;
+};
+
+export const generateCoverLetter = async (jobDescription: string, tone: string = 'Professional'): Promise<CoverLetterResult> => {
+  const result = await apiRequest<CoverLetterResult>('/resume/cover-letter', {
+    method: 'POST',
+    body: JSON.stringify({ jobDescription, tone })
+  });
+
+  if (!result.data) {
+    throw new Error(result.message || 'Failed to generate cover letter');
   }
 
   return result.data;

@@ -461,3 +461,212 @@ Respond ONLY with a JSON object in this exact format:
     res.status(500).json({ success: false, message: 'Failed to analyze job description', data: null });
   }
 };
+
+export interface ResumeAuditResult {
+  overallScore: number;
+  atsScore: number;
+  brevityScore: number;
+  impactScore: number;
+  grammarScore: number;
+  strengths: string[];
+  improvements: string[];
+  suggestedRewrites: Array<{ original: string; improved: string }>;
+}
+
+// POST /api/v1/resume/score
+export const scoreResume = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized', data: null });
+      return;
+    }
+
+    let resumeText = '';
+    if (mongoose.connection.readyState === 1) {
+      const latest = await ResumeModel.findOne({ userId: req.user.id }).sort({ createdAt: -1 });
+      if (latest) resumeText = latest.parsedText || '';
+    } else {
+      const userResumes = offlineResumes.filter(r => r.userId === req.user!.id);
+      const latest = userResumes.length > 0 ? userResumes[userResumes.length - 1] : null;
+      if (latest) resumeText = latest.parsedText || '';
+    }
+
+    if (!resumeText) {
+      res.status(404).json({
+        success: false,
+        message: 'No uploaded resume found. Please upload a resume first to run an AI audit.',
+        data: null
+      });
+      return;
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (apiKey && apiKey.trim() !== '' && apiKey !== 'your_openai_api_key_here') {
+      try {
+        console.log(`Running comprehensive AI Resume Audit using AI Model (${process.env.AI_MODEL || 'gemini-2.5-flash-lite'})...`);
+        const openai = new OpenAI({
+          apiKey,
+          ...(process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {})
+        });
+        const model = process.env.AI_MODEL || 'gemini-2.5-flash-lite';
+
+        const prompt = `Conduct a comprehensive resume audit on the following candidate resume text:
+"${resumeText.slice(0, 3000)}"
+
+Respond ONLY with a JSON object matching this exact format:
+{
+  "overallScore": 84,
+  "atsScore": 88,
+  "brevityScore": 80,
+  "impactScore": 82,
+  "grammarScore": 95,
+  "strengths": ["Strong technical stack coverage", "Clear experience chronology"],
+  "improvements": ["Quantify achievements with metrics", "Add missing cloud certification details"],
+  "suggestedRewrites": [
+    {
+      "original": "Worked on backend APIs",
+      "improved": "Engineered high-throughput REST APIs using Node.js, improving server response times by 35%."
+    }
+  ]
+}`;
+
+        const completion = await openai.chat.completions.create({
+          model,
+          messages: [
+            { role: 'system', content: 'You are a professional resume auditor and recruiter. Respond ONLY in valid JSON.' },
+            { role: 'user', content: prompt }
+          ],
+          response_format: { type: 'json_object' }
+        });
+
+        const content = completion.choices[0]?.message?.content || '{}';
+        const result: ResumeAuditResult = JSON.parse(content);
+
+        res.status(200).json({ success: true, message: 'Resume audit completed with AI', data: result });
+        return;
+      } catch (err: any) {
+        console.warn('AI Resume audit failed, using fallback metrics:', err.message);
+      }
+    }
+
+    // Deterministic audit fallback
+    res.status(200).json({
+      success: true,
+      message: 'Resume audit completed (fallback mode)',
+      data: {
+        overallScore: 82,
+        atsScore: 85,
+        brevityScore: 78,
+        impactScore: 80,
+        grammarScore: 92,
+        strengths: ['Well-structured formatting', 'Clear technology keywords'],
+        improvements: ['Include specific metric outcomes (e.g. % performance increase)', 'Add key certifications'],
+        suggestedRewrites: [
+          {
+            original: 'Responsible for database queries and API dev',
+            improved: 'Designed and optimized PostgreSQL queries, reducing p99 latency by 40%.'
+          }
+        ]
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to score resume', data: null });
+  }
+};
+
+export interface CoverLetterResult {
+  coverLetter: string;
+  coldEmail: string;
+  subjectLine: string;
+}
+
+// POST /api/v1/resume/cover-letter
+export const generateCoverLetter = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized', data: null });
+      return;
+    }
+
+    const { jobDescription, tone } = req.body;
+    if (!jobDescription || typeof jobDescription !== 'string' || jobDescription.trim() === '') {
+      res.status(400).json({ success: false, message: 'Job description text is required', data: null });
+      return;
+    }
+
+    let resumeText = '';
+    if (mongoose.connection.readyState === 1) {
+      const latest = await ResumeModel.findOne({ userId: req.user.id }).sort({ createdAt: -1 });
+      if (latest) resumeText = latest.parsedText || '';
+    } else {
+      const userResumes = offlineResumes.filter(r => r.userId === req.user!.id);
+      const latest = userResumes.length > 0 ? userResumes[userResumes.length - 1] : null;
+      if (latest) resumeText = latest.parsedText || '';
+    }
+
+    if (!resumeText) {
+      res.status(404).json({
+        success: false,
+        message: 'No uploaded resume found. Please upload your resume first to generate a cover letter.',
+        data: null
+      });
+      return;
+    }
+
+    const selectedTone = tone || 'Professional';
+    const apiKey = process.env.OPENAI_API_KEY;
+
+    if (apiKey && apiKey.trim() !== '' && apiKey !== 'your_openai_api_key_here') {
+      try {
+        console.log(`Generating Cover Letter & Cold Email using AI Model (${process.env.AI_MODEL || 'gemini-2.5-flash-lite'})...`);
+        const openai = new OpenAI({
+          apiKey,
+          ...(process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {})
+        });
+        const model = process.env.AI_MODEL || 'gemini-2.5-flash-lite';
+
+        const prompt = `Generate a compelling tailored Cover Letter and a short Hiring Manager Cold Outreach Email based on:
+Candidate Resume: "${resumeText.slice(0, 2500)}"
+Target Job Description: "${jobDescription.slice(0, 2500)}"
+Desired Tone: "${selectedTone}"
+
+Respond ONLY with a JSON object in this exact format:
+{
+  "coverLetter": "Full multi-paragraph cover letter formatted text...",
+  "coldEmail": "Short punchy 3-paragraph cold outreach email...",
+  "subjectLine": "Application for [Role] - [Candidate Name]"
+}`;
+
+        const completion = await openai.chat.completions.create({
+          model,
+          messages: [
+            { role: 'system', content: 'You are an expert career consultant and executive recruiter. Respond ONLY in valid JSON.' },
+            { role: 'user', content: prompt }
+          ],
+          response_format: { type: 'json_object' }
+        });
+
+        const content = completion.choices[0]?.message?.content || '{}';
+        const result: CoverLetterResult = JSON.parse(content);
+
+        res.status(200).json({ success: true, message: 'Cover letter generated successfully', data: result });
+        return;
+      } catch (err: any) {
+        console.warn('AI cover letter generation failed, using fallback:', err.message);
+      }
+    }
+
+    // Fallback template generator
+    res.status(200).json({
+      success: true,
+      message: 'Cover letter generated (fallback mode)',
+      data: {
+        subjectLine: `Application for Senior Software Engineer - Candidate`,
+        coverLetter: `Dear Hiring Team,\n\nI am writing to express my strong enthusiasm for the Senior Software Engineer position. With extensive experience in modern web development, TypeScript, React, and Node.js backend services, I am confident in my ability to make an immediate positive impact on your team.\n\nThroughout my career, I have focused on building scalable, reliable applications and collaborating closely with cross-functional product teams. Your posted requirements align perfectly with my technical background and passion for building quality software.\n\nThank you for considering my application. I look forward to the opportunity to discuss how my skills and experience can support your goals.\n\nSincerely,\nCandidate`,
+        coldEmail: `Hi Hiring Team,\n\nI recently came across the Senior Software Engineer role and wanted to reach out directly. With proven experience in building high-performance TypeScript/React applications and Node.js microservices, I believe I would be a great fit for your team.\n\nWould you be open to a brief 10-minute chat this week to discuss how I can contribute?\n\nBest regards,\nCandidate`
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to generate cover letter', data: null });
+  }
+};
