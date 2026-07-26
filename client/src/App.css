@@ -1,0 +1,370 @@
+/* App Layout Styling */
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.brand-logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333333;
+}
+
+.nav-menu {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.nav-menu a {
+  color: #555555;
+  font-weight: 500;
+}
+
+.nav-menu a:hover {
+  color: #0056b3;
+}
+
+.btn-login-nav {
+  background-color: #0056b3;
+  color: #ffffff !important;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+.btn-login-nav:hover {
+  background-color: #004085;
+}
+
+.app-content {
+  flex: 1;
+  padding: 2rem;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.app-footer {
+  text-align: center;
+  padding: 1.5rem;
+  background-color: #ffffff;
+  border-top: 1px solid #eaeaea;
+  font-size: 0.9rem;
+  color: #777777;
+}
+
+/* Page Components */
+.page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.page-header h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
+  color: #333333;
+}
+
+.page-header p {
+  margin: 0;
+  color: #666666;
+}
+
+.action-banner {
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  padding: 2rem;
+  border-radius: 8px;
+  color: #0369a1;
+}
+
+.action-banner h3 {
+  margin: 0 0 0.5rem 0;
+}
+
+.action-banner p {
+  margin: 0 0 1.5rem 0;
+}
+
+.section-card {
+  background-color: #ffffff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.section-card h3 {
+  margin: 0 0 1rem 0;
+}
+
+/* Buttons */
+.btn {
+  display: inline-block;
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  text-align: center;
+}
+
+.btn-primary {
+  background-color: #0056b3;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: #004085;
+}
+
+.btn-primary:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.btn-secondary:hover {
+  background-color: #e2e8f0;
+}
+
+.btn-sm {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+/* Data Table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.data-table th, .data-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.data-table th {
+  background-color: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-completed {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.badge-in_progress {
+  background-color: #fef9c3;
+  color: #a16207;
+}
+
+.badge-pending {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+/* Forms & Auth */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f8f9fa;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.auth-card {
+  background-color: #ffffff;
+  padding: 2.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  width: 100%;
+  max-width: 450px;
+  box-sizing: border-box;
+}
+
+.auth-card h2 {
+  margin: 0 0 0.5rem 0;
+  text-align: center;
+}
+
+.auth-card .subtitle {
+  text-align: center;
+  color: #666666;
+  margin-bottom: 2rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.form-group label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #475569;
+}
+
+.form-group input {
+  padding: 0.6rem 0.8rem;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  font-size: 1rem;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #0056b3;
+}
+
+.auth-footer {
+  text-align: center;
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+  color: #666666;
+}
+
+/* Grids */
+.grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.stat-card {
+  background-color: #ffffff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.stat-card h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: #64748b;
+}
+
+.stat-number {
+  margin: 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+@media (max-width: 768px) {
+  .grid-2col {
+    grid-template-columns: 1fr;
+  }
+  .app-header {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+}
+
+/* Dark mode overrides (Clean slate aesthetic) */
+@media (prefers-color-scheme: dark) {
+  .app-header, .app-footer, .section-card, .stat-card, .auth-card {
+    background-color: #1e1e1e;
+    border-color: #333333;
+  }
+  .brand-logo {
+    color: #ffffff;
+  }
+  .nav-menu a {
+    color: #cccccc;
+  }
+  .nav-menu a:hover {
+    color: #646cff;
+  }
+  .page-header h1 {
+    color: #ffffff;
+  }
+  .page-header p {
+    color: #aaaaaa;
+  }
+  .form-group label {
+    color: #cccccc;
+  }
+  .form-group input {
+    background-color: #2a2a2a;
+    border-color: #444444;
+    color: #ffffff;
+  }
+  .form-group input:focus {
+    border-color: #646cff;
+  }
+  .stat-card h3 {
+    color: #94a3b8;
+  }
+  .stat-number {
+    color: #ffffff;
+  }
+  .data-table th {
+    background-color: #2a2a2a;
+    color: #cccccc;
+  }
+  .data-table th, .data-table td {
+    border-bottom-color: #333333;
+  }
+  .btn-secondary {
+    background-color: #2d3748;
+    color: #e2e8f0;
+    border-color: #4a5568;
+  }
+  .btn-secondary:hover {
+    background-color: #4a5568;
+  }
+  .auth-container {
+    background-color: #121212;
+  }
+  .badge-pending {
+    background-color: #334155;
+    color: #cbd5e1;
+  }
+}
