@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ResumeDoc } from '@ai-interview/shared';
 import { getMyResume, analyzeJobDescription, type JDAnalysisResult } from '../api/resume';
+import { JdMatchIcon, ZapIcon } from '../components/Icons';
 
 const JdAnalyzer: React.FC = () => {
   const navigate = useNavigate();
@@ -64,12 +65,17 @@ const JdAnalyzer: React.FC = () => {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>🎯 JD Match & ATS Skill Gap Analyzer</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.25rem' }}>
+          <div className="card-header-icon card-icon-rose" style={{ margin: 0 }}>
+            <JdMatchIcon size={24} />
+          </div>
+          <h1>JD Match & ATS Skill Gap Analyzer</h1>
+        </div>
         <p>Paste target job postings to compute AI Match Scores, audit missing keywords, and launch tailored mock interviews.</p>
       </div>
 
       {!resume && (
-        <div style={{ backgroundColor: '#fffbebfb', color: '#b45309', padding: '1.25rem', borderRadius: '8px', border: '1px solid #fde047', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="alert-banner alert-banner-warning" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <strong>No Resume Uploaded Yet:</strong> Please upload your CV on the Resume page to enable AI Match analysis against Job Descriptions.
           </div>
@@ -80,7 +86,7 @@ const JdAnalyzer: React.FC = () => {
       )}
 
       {errorMsg && (
-        <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '12px 15px', borderRadius: '6px', border: '1px solid #fca5a5' }}>
+        <div className="alert-banner alert-banner-error">
           {errorMsg}
         </div>
       )}
@@ -95,7 +101,7 @@ const JdAnalyzer: React.FC = () => {
           style={{
             width: '100%',
             padding: '0.85rem',
-            borderRadius: '6px',
+            borderRadius: '10px',
             border: '1px solid #cbd5e1',
             fontSize: '0.95rem',
             fontFamily: 'inherit',
@@ -125,7 +131,7 @@ const JdAnalyzer: React.FC = () => {
             <div style={{
               textAlign: 'center',
               padding: '1rem 2rem',
-              borderRadius: '10px',
+              borderRadius: '12px',
               backgroundColor: result.matchScore >= 80 ? '#dcfce7' : result.matchScore >= 60 ? '#fef3c7' : '#fee2e2',
               border: `1px solid ${result.matchScore >= 80 ? '#86efac' : result.matchScore >= 60 ? '#fde047' : '#fca5a5'}`
             }}>
@@ -142,22 +148,22 @@ const JdAnalyzer: React.FC = () => {
           </div>
 
           <div className="grid-2col" style={{ gap: '1.5rem', marginBottom: '1.5rem' }}>
-            <div style={{ padding: '1.25rem', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
-              <h4 style={{ margin: '0 0 0.75rem 0', color: '#166534', fontSize: '1.1rem' }}>✅ Matching Skills & Tech Stack</h4>
+            <div style={{ padding: '1.25rem', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px' }}>
+              <h4 style={{ margin: '0 0 0.75rem 0', color: '#166534', fontSize: '1.1rem' }}>Matching Skills & Tech Stack</h4>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {result.matchingSkills.map((skill, idx) => (
-                  <span key={idx} style={{ backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #86efac', padding: '5px 12px', borderRadius: '9999px', fontSize: '0.9rem', fontWeight: '600' }}>
+                  <span key={idx} className="badge badge-completed">
                     {skill}
                   </span>
                 ))}
               </div>
             </div>
 
-            <div style={{ padding: '1.25rem', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px' }}>
-              <h4 style={{ margin: '0 0 0.75rem 0', color: '#991b1b', fontSize: '1.1rem' }}>⚠️ Missing Keywords & Gaps</h4>
+            <div style={{ padding: '1.25rem', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px' }}>
+              <h4 style={{ margin: '0 0 0.75rem 0', color: '#991b1b', fontSize: '1.1rem' }}>Missing Keywords & Gaps</h4>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {result.missingSkills.map((skill, idx) => (
-                  <span key={idx} style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', padding: '5px 12px', borderRadius: '9999px', fontSize: '0.9rem', fontWeight: '600' }}>
+                  <span key={idx} style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', padding: '5px 12px', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: '700' }}>
                     {skill}
                   </span>
                 ))}
@@ -166,8 +172,8 @@ const JdAnalyzer: React.FC = () => {
           </div>
 
           {result.tailoredRecommendations?.length > 0 && (
-            <div style={{ padding: '1.25rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', marginBottom: '1.5rem' }}>
-              <h4 style={{ margin: '0 0 0.5rem 0', color: '#0f172a', fontSize: '1.05rem' }}>💡 Tailored Recommendations for Your Interview:</h4>
+            <div style={{ padding: '1.25rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', marginBottom: '1.5rem' }}>
+              <h4 style={{ margin: '0 0 0.5rem 0', color: '#0f172a', fontSize: '1.05rem' }}>Tailored Recommendations for Your Interview:</h4>
               <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#334155', lineHeight: 1.6 }}>
                 {result.tailoredRecommendations.map((rec, idx) => (
                   <li key={idx} style={{ marginBottom: '0.35rem' }}>{rec}</li>
@@ -179,9 +185,10 @@ const JdAnalyzer: React.FC = () => {
           <button
             onClick={handleStartJdInterview}
             className="btn btn-primary"
-            style={{ width: '100%', padding: '1rem', fontSize: '1.1rem', fontWeight: '700' }}
+            style={{ width: '100%', padding: '1rem', fontSize: '1.05rem', fontWeight: '700' }}
           >
-            🚀 Launch JD-Tailored Mock Interview
+            <ZapIcon size={20} color="#ffffff" />
+            Launch JD-Tailored Mock Interview
           </button>
         </div>
       )}

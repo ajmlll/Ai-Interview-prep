@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
@@ -11,6 +11,19 @@ import AdminDashboard from './pages/AdminDashboard';
 import Progress from './pages/Progress';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RequireAuth } from './components/RequireAuth';
+import {
+  DashboardIcon,
+  MockInterviewIcon,
+  ResumeIcon,
+  JdMatchIcon,
+  CoverLetterIcon,
+  AnalyticsIcon,
+  AdminIcon,
+  ZapIcon,
+  LogoutIcon,
+  MenuIcon,
+  CloseIcon
+} from './components/Icons';
 import './App.css';
 
 interface LayoutProps {
@@ -21,6 +34,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -40,45 +54,77 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
 
+  const closeMobileNav = () => setMobileNavOpen(false);
+
   return (
     <div className="app-shell">
-      <aside className="app-sidebar">
+      {/* Mobile Nav Backdrop Overlay */}
+      {mobileNavOpen && (
+        <div className="mobile-nav-overlay" onClick={closeMobileNav} />
+      )}
+
+      <aside className={`app-sidebar ${mobileNavOpen ? 'mobile-open' : ''}`}>
         <div className="app-sidebar-logo">
-          <Link to="/">
+          <Link to="/" onClick={closeMobileNav}>
             <div className="brand-logo-badge">
-              <span>⚡</span>
+              <ZapIcon size={20} color="#ffffff" />
             </div>
             <span className="brand-name">AI Interview Prep</span>
           </Link>
+
+          <button className="mobile-close-btn" onClick={closeMobileNav} aria-label="Close Navigation">
+            <CloseIcon size={20} color="#64748b" />
+          </button>
         </div>
+
         <nav className="app-sidebar-nav">
-          <Link to="/" className={isActive('/')}>
-            <span className="nav-icon">📊</span>
+          <Link to="/" className={isActive('/')} onClick={closeMobileNav}>
+            <span className="nav-icon-badge nav-icon-blue">
+              <DashboardIcon size={18} />
+            </span>
             <span className="nav-label">Dashboard</span>
           </Link>
-          <Link to="/mock-interview" className={isActive('/mock-interview')}>
-            <span className="nav-icon">🎙️</span>
+
+          <Link to="/mock-interview" className={isActive('/mock-interview')} onClick={closeMobileNav}>
+            <span className="nav-icon-badge nav-icon-indigo">
+              <MockInterviewIcon size={18} />
+            </span>
             <span className="nav-label">Mock Interview</span>
           </Link>
-          <Link to="/resume" className={isActive('/resume')}>
-            <span className="nav-icon">📄</span>
+
+          <Link to="/resume" className={isActive('/resume')} onClick={closeMobileNav}>
+            <span className="nav-icon-badge nav-icon-teal">
+              <ResumeIcon size={18} />
+            </span>
             <span className="nav-label">Resume Studio & Audit</span>
           </Link>
-          <Link to="/jd-analyzer" className={isActive('/jd-analyzer')}>
-            <span className="nav-icon">🎯</span>
+
+          <Link to="/jd-analyzer" className={isActive('/jd-analyzer')} onClick={closeMobileNav}>
+            <span className="nav-icon-badge nav-icon-rose">
+              <JdMatchIcon size={18} />
+            </span>
             <span className="nav-label">JD Match & ATS</span>
           </Link>
-          <Link to="/cover-letter" className={isActive('/cover-letter')}>
-            <span className="nav-icon">✉️</span>
+
+          <Link to="/cover-letter" className={isActive('/cover-letter')} onClick={closeMobileNav}>
+            <span className="nav-icon-badge nav-icon-violet">
+              <CoverLetterIcon size={18} />
+            </span>
             <span className="nav-label">Cover Letter & Outreach</span>
           </Link>
-          <Link to="/progress" className={isActive('/progress')}>
-            <span className="nav-icon">📈</span>
+
+          <Link to="/progress" className={isActive('/progress')} onClick={closeMobileNav}>
+            <span className="nav-icon-badge nav-icon-cyan">
+              <AnalyticsIcon size={18} />
+            </span>
             <span className="nav-label">Performance & Analytics</span>
           </Link>
+
           {user?.role === 'admin' && (
-            <Link to="/admin" className={isActive('/admin')}>
-              <span className="nav-icon">🛠️</span>
+            <Link to="/admin" className={isActive('/admin')} onClick={closeMobileNav}>
+              <span className="nav-icon-badge nav-icon-slate">
+                <AdminIcon size={18} />
+              </span>
               <span className="nav-label">Admin Dashboard</span>
             </Link>
           )}
@@ -87,24 +133,30 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       
       <div className="app-body">
         <header className="app-topbar">
-          {user && (
-            <div className="app-user-profile-pill">
-              <div className="avatar-ring">
-                <span className="avatar-initial">{userInitial}</span>
-              </div>
-              <div className="app-user-meta">
-                <span className="app-user-name">{user.name}</span>
-                <span className="app-user-role-badge">
-                  <span className="role-dot"></span>
-                  {user.role}
-                </span>
-              </div>
-            </div>
-          )}
-          <button onClick={handleLogout} className="btn-logout" title="Sign out of account">
-            <span className="logout-icon">🚪</span>
-            <span>Logout</span>
+          <button className="mobile-menu-toggle" onClick={() => setMobileNavOpen(true)} aria-label="Toggle Navigation">
+            <MenuIcon size={24} color="#0f172a" />
           </button>
+
+          <div className="topbar-right">
+            {user && (
+              <div className="app-user-profile-pill">
+                <div className="avatar-ring">
+                  <span className="avatar-initial">{userInitial}</span>
+                </div>
+                <div className="app-user-meta">
+                  <span className="app-user-name">{user.name}</span>
+                  <span className="app-user-role-badge">
+                    <span className="role-dot"></span>
+                    {user.role}
+                  </span>
+                </div>
+              </div>
+            )}
+            <button onClick={handleLogout} className="btn-logout" title="Sign out of account">
+              <LogoutIcon size={16} color="#ffffff" />
+              <span>Logout</span>
+            </button>
+          </div>
         </header>
         
         <main className="app-main">

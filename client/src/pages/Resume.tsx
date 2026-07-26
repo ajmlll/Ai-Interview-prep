@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ResumeDoc } from '@ai-interview/shared';
 import { uploadResume, getMyResume, getResumeAudit, type ResumeAuditResult } from '../api/resume';
+import { ResumeIcon, JdMatchIcon, CoverLetterIcon, ZapIcon } from '../components/Icons';
 
 const Resume: React.FC = () => {
   const navigate = useNavigate();
@@ -121,12 +122,17 @@ const Resume: React.FC = () => {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>📄 Resume Studio & AI Audit</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.25rem' }}>
+          <div className="card-header-icon card-icon-teal" style={{ margin: 0 }}>
+            <ResumeIcon size={24} />
+          </div>
+          <h1>Resume Studio & AI Audit</h1>
+        </div>
         <p>Upload your CV (PDF or DOCX) for text parsing, skill extraction, ATS readability scoring, and high-impact AI bullet rewrites.</p>
       </div>
 
       {errorMsg && (
-        <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '15px', borderRadius: '6px', border: '1px solid #fca5a5', marginBottom: '1.5rem' }}>
+        <div className="alert-banner alert-banner-error">
           <strong>Error:</strong> {errorMsg}
         </div>
       )}
@@ -160,8 +166,10 @@ const Resume: React.FC = () => {
             accept=".pdf,.docx"
             onChange={handleChange}
           />
-          <div style={{ fontSize: '2.5rem', marginBottom: '1rem', color: '#64748b' }}>📄</div>
-          <h3>Drag and drop your resume file here</h3>
+          <div className="card-header-icon card-icon-teal" style={{ width: 56, height: 56, borderRadius: 16 }}>
+            <ResumeIcon size={32} />
+          </div>
+          <h3 style={{ marginTop: '0.5rem' }}>Drag and drop your resume file here</h3>
           <p style={{ margin: '0.25rem 0 1.5rem 0', color: '#64748b' }}>Supports PDF and DOCX formats (Max size: 5MB)</p>
           <button type="button" className="btn btn-secondary">
             Or Click to Browse Files
@@ -221,7 +229,8 @@ const Resume: React.FC = () => {
                   className="btn btn-primary"
                   style={{ flex: 1 }}
                 >
-                  {auditing ? 'Auditing with Gemini AI...' : '💡 Run AI Score Audit'}
+                  <ZapIcon size={18} color="#ffffff" />
+                  {auditing ? 'Auditing with Gemini AI...' : 'Run AI Score Audit'}
                 </button>
                 <button onClick={() => setUploadedResume(null)} className="btn btn-secondary">
                   Change File
@@ -231,7 +240,7 @@ const Resume: React.FC = () => {
 
             <div className="section-card" style={{ display: 'flex', flexDirection: 'column', height: '400px' }}>
               <h3 style={{ margin: 0, paddingBottom: '0.75rem', borderBottom: '1px solid #e2e8f0' }}>Parsed Text Preview</h3>
-              <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px', marginTop: '1rem', whiteSpace: 'pre-wrap', fontSize: '0.875rem', color: '#334155', fontFamily: 'monospace' }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', marginTop: '1rem', whiteSpace: 'pre-wrap', fontSize: '0.875rem', color: '#334155', fontFamily: 'monospace' }}>
                 {uploadedResume.parsedText}
               </div>
             </div>
@@ -239,7 +248,7 @@ const Resume: React.FC = () => {
 
           {/* AI Audit Results Breakdown */}
           {auditError && (
-            <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '12px 15px', borderRadius: '6px', border: '1px solid #fca5a5', marginBottom: '1.5rem' }}>
+            <div className="alert-banner alert-banner-error" style={{ marginBottom: '1.5rem' }}>
               {auditError}
             </div>
           )}
@@ -270,7 +279,7 @@ const Resume: React.FC = () => {
 
               <div className="grid-2col">
                 <div className="section-card" style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-                  <h3 style={{ color: '#166534', marginTop: 0 }}>✅ Key Strengths</h3>
+                  <h3 style={{ color: '#166534', marginTop: 0 }}>Key Strengths</h3>
                   <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#14532d', lineHeight: 1.6 }}>
                     {auditResult.strengths.map((str, idx) => (
                       <li key={idx} style={{ marginBottom: '0.5rem' }}>{str}</li>
@@ -279,7 +288,7 @@ const Resume: React.FC = () => {
                 </div>
 
                 <div className="section-card" style={{ backgroundColor: '#fffbebfb', border: '1px solid #fde047' }}>
-                  <h3 style={{ color: '#92400e', marginTop: 0 }}>⚠️ Areas to Improve</h3>
+                  <h3 style={{ color: '#92400e', marginTop: 0 }}>Areas to Improve</h3>
                   <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#78350f', lineHeight: 1.6 }}>
                     {auditResult.improvements.map((imp, idx) => (
                       <li key={idx} style={{ marginBottom: '0.5rem' }}>{imp}</li>
@@ -290,10 +299,10 @@ const Resume: React.FC = () => {
 
               {auditResult.suggestedRewrites?.length > 0 && (
                 <div className="section-card">
-                  <h3 style={{ marginTop: 0 }}>✨ High-Impact AI Bullet Point Rewrites</h3>
+                  <h3 style={{ marginTop: 0 }}>High-Impact AI Bullet Point Rewrites</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     {auditResult.suggestedRewrites.map((item, idx) => (
-                      <div key={idx} style={{ padding: '1rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+                      <div key={idx} style={{ padding: '1rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
                         <div style={{ fontSize: '0.85rem', color: '#dc2626', fontWeight: 'bold', marginBottom: '0.25rem' }}>Original Line:</div>
                         <div style={{ color: '#64748b', textDecoration: 'line-through', marginBottom: '0.75rem', fontSize: '0.95rem' }}>{item.original}</div>
                         
@@ -310,7 +319,10 @@ const Resume: React.FC = () => {
           {/* Quick Action Navigation Grid */}
           <div className="quick-start-grid">
             <div className="quick-start-card">
-              <h4>🎯 Analyze Against Job Posting</h4>
+              <div className="card-header-icon card-icon-rose">
+                <JdMatchIcon size={24} />
+              </div>
+              <h4>Analyze Against Job Posting</h4>
               <p>Compare this resume against a target Job Description to compute your Match Score % and missing keywords.</p>
               <button onClick={() => navigate('/jd-analyzer')} className="btn btn-primary btn-sm" style={{ width: 'fit-content', marginTop: '10px' }}>
                 Open JD Match Analyzer
@@ -318,7 +330,10 @@ const Resume: React.FC = () => {
             </div>
 
             <div className="quick-start-card">
-              <h4>✉️ Cover Letter & Cold Email</h4>
+              <div className="card-header-icon card-icon-violet">
+                <CoverLetterIcon size={24} />
+              </div>
+              <h4>Cover Letter & Cold Email</h4>
               <p>Generate ATS-optimized cover letters and recruiter outreach templates based on this resume.</p>
               <button onClick={() => navigate('/cover-letter')} className="btn btn-primary btn-sm" style={{ width: 'fit-content', marginTop: '10px' }}>
                 Generate Cover Letter

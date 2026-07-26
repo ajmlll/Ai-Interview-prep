@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ResumeDoc } from '@ai-interview/shared';
 import { getMyResume, generateCoverLetter, type CoverLetterResult } from '../api/resume';
+import { CoverLetterIcon } from '../components/Icons';
 
 const CoverLetter: React.FC = () => {
   const navigate = useNavigate();
@@ -74,12 +75,17 @@ const CoverLetter: React.FC = () => {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>✉️ AI Cover Letter & Cold Email Generator</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.25rem' }}>
+          <div className="card-header-icon card-icon-violet" style={{ margin: 0 }}>
+            <CoverLetterIcon size={24} />
+          </div>
+          <h1>AI Cover Letter & Cold Email Generator</h1>
+        </div>
         <p>Generate tailored, high-converting Cover Letters and hiring manager cold outreach emails in seconds using Gemini AI.</p>
       </div>
 
       {!resume && (
-        <div style={{ backgroundColor: '#fffbebfb', color: '#b45309', padding: '1.25rem', borderRadius: '8px', border: '1px solid #fde047', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="alert-banner alert-banner-warning" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <strong>No Resume Uploaded Yet:</strong> Please upload your CV on the Resume page so Gemini AI can extract your personal work history.
           </div>
@@ -90,7 +96,7 @@ const CoverLetter: React.FC = () => {
       )}
 
       {errorMsg && (
-        <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '12px 15px', borderRadius: '6px', border: '1px solid #fca5a5' }}>
+        <div className="alert-banner alert-banner-error">
           {errorMsg}
         </div>
       )}
@@ -105,7 +111,7 @@ const CoverLetter: React.FC = () => {
           style={{
             width: '100%',
             padding: '0.85rem',
-            borderRadius: '6px',
+            borderRadius: '10px',
             border: '1px solid #cbd5e1',
             fontSize: '0.95rem',
             fontFamily: 'inherit',
@@ -135,7 +141,7 @@ const CoverLetter: React.FC = () => {
           className="btn btn-primary"
           style={{ padding: '0.85rem 1.75rem', fontSize: '1.05rem', fontWeight: '700' }}
         >
-          {generating ? 'Generating Materials with Gemini AI...' : '✨ Generate Cover Letter & Cold Email'}
+          {generating ? 'Generating Materials with Gemini AI...' : 'Generate Cover Letter & Cold Email'}
         </button>
       </div>
 
@@ -144,12 +150,12 @@ const CoverLetter: React.FC = () => {
           {/* Cover Letter Card */}
           <div className="section-card" style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
-              <h3 style={{ margin: 0 }}>📄 Tailored Cover Letter</h3>
+              <h3 style={{ margin: 0 }}>Tailored Cover Letter</h3>
               <button
                 onClick={() => copyToClipboard(result.coverLetter, 'cover')}
                 className="btn btn-secondary btn-sm"
               >
-                {copiedCover ? '✓ Copied!' : '📋 Copy Text'}
+                {copiedCover ? 'Copied!' : 'Copy Text'}
               </button>
             </div>
             <div style={{
@@ -160,7 +166,7 @@ const CoverLetter: React.FC = () => {
               lineHeight: 1.65,
               backgroundColor: '#f8fafc',
               padding: '1.25rem',
-              borderRadius: '6px',
+              borderRadius: '10px',
               border: '1px solid #e2e8f0',
               fontFamily: 'sans-serif'
             }}>
@@ -171,16 +177,16 @@ const CoverLetter: React.FC = () => {
           {/* Hiring Manager Cold Email Card */}
           <div className="section-card" style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
-              <h3 style={{ margin: 0 }}>✉️ Hiring Manager Cold Email</h3>
+              <h3 style={{ margin: 0 }}>Hiring Manager Cold Email</h3>
               <button
                 onClick={() => copyToClipboard(`Subject: ${result.subjectLine}\n\n${result.coldEmail}`, 'email')}
                 className="btn btn-secondary btn-sm"
               >
-                {copiedEmail ? '✓ Copied!' : '📋 Copy Email'}
+                {copiedEmail ? 'Copied!' : 'Copy Email'}
               </button>
             </div>
 
-            <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: '6px', color: '#0369a1', fontSize: '0.9rem' }}>
+            <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', backgroundColor: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: '8px', color: '#0369a1', fontSize: '0.9rem' }}>
               <strong>Subject Line:</strong> {result.subjectLine}
             </div>
 
@@ -192,7 +198,7 @@ const CoverLetter: React.FC = () => {
               lineHeight: 1.65,
               backgroundColor: '#f8fafc',
               padding: '1.25rem',
-              borderRadius: '6px',
+              borderRadius: '10px',
               border: '1px solid #e2e8f0',
               fontFamily: 'sans-serif'
             }}>
