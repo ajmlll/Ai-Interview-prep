@@ -1,8 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import type { Interview } from '@ai-interview/shared';
+import { useAuth } from '../context/AuthContext';
 
 const Dashboard: React.FC = () => {
+  const { user } = useAuth();
+
   // Mock data using the shared Interview type
   const mockInterviews: Interview[] = [
     {
@@ -33,14 +36,34 @@ const Dashboard: React.FC = () => {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Dashboard</h1>
+        <h1>Welcome back, {user?.name || 'User'}!</h1>
         <p>Prepare for your next technical or behavioral interview with tailored AI evaluations.</p>
       </div>
 
-      <div className="action-banner">
-        <h3>Ready to practice?</h3>
-        <p>Create a new simulated interview session instantly.</p>
-        <Link to="/mock-interview" className="btn btn-primary">Start New Mock Interview</Link>
+      <div className="quick-start-grid">
+        <div className="quick-start-card">
+          <h4>Mock Interview Simulator</h4>
+          <p>Practice under simulated pressure. Get real-time AI questions tailored to your target job profile.</p>
+          <Link to="/mock-interview" className="btn btn-primary btn-sm" style={{ width: 'fit-content', marginTop: '10px' }}>
+            Start Mock Interview
+          </Link>
+        </div>
+
+        <div className="quick-start-card">
+          <h4>Resume Analyzer</h4>
+          <p>Upload your resume to extract skills, compute years of experience, and tailor interview topics.</p>
+          <Link to="/resume" className="btn btn-primary btn-sm" style={{ width: 'fit-content', marginTop: '10px' }}>
+            Analyze Resume
+          </Link>
+        </div>
+
+        <div className="quick-start-card">
+          <h4>Progress Trends</h4>
+          <p>Monitor your performance scores across behavioral, coding, and system design categories.</p>
+          <Link to="/progress" className="btn btn-primary btn-sm" style={{ width: 'fit-content', marginTop: '10px' }}>
+            Check Progress
+          </Link>
+        </div>
       </div>
 
       <div className="section-card">

@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { getStats, listAllUsers, listAllInterviews } from '../controllers/admin.controller';
-import { authMiddleware } from '../middlewares/auth.middleware';
+import { requireAuth, requireRole } from '../middlewares/auth.middleware';
 
 const router = Router();
 
-// Apply auth middleware to all admin endpoints (ideally admin roles check too)
-router.use(authMiddleware);
+// Apply admin role verification checks to all endpoints under this router
+router.use(requireAuth, requireRole('admin'));
 
 // GET /api/v1/admin/stats
 router.get('/stats', getStats);

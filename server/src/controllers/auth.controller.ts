@@ -1,51 +1,289 @@
 import { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { z } from 'zod';
+import { UserModel } from '../models/User.model';
+import redisClient from '../config/redis';
 
-// TODO: Implement user registration logic, hashing passwords, storing in DB
-export const register = async (req: Request, res: Response): Promise<void> => {
-  console.log('authController.register stub called');
-  res.status(201).json({
-    success: true,
-    message: 'User registration TODO',
-    data: null
-  });
+// Zod schemas for body validation
+const registerSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().min(1, 'Email is required').email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters')
+});
+
+const loginSchema = z.object({
+  email: z.string().min(1, 'Email is required').email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters')
+});
+
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_jwt_secret_key_123';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'fallback_jwt_refresh_secret_key_456';
+const REFRESH_TOKEN_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
+
+// Helper to generate access & refresh tokens
+const generateTokenPair = (userId: string, email: string, role: string) => {
+  const payload = { id: userId, email, role };
+  
+  const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' });
+  const refreshToken = jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: '7d' });
+  
+  return { accessToken, refreshToken };
 };
 
-// TODO: Implement login logic, validating credentials, generating JWT & refresh tokens
+// POST /api/v1/auth/register
+export const register = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const bodyResult = registerSchema.safeParse(req.body);
+    if (!bodyResult.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: bodyResult.error.format()
+      });
+      return;
+    }
+
+    const { name, email, password } = bodyResult.data;
+
+    // Check if user already exists
+    const existingUser = await UserModel.findOne({ email });
+    if (existingUser) {
+      res.status(400).json({
+        success: false,
+        message: 'A user with this email address already exists.',
+        data: null
+      });
+      return;
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Create user
+    const newUser = new UserModel({
+      name,
+      email,
+      passwordHash,
+      role: 'user' // default role
+    });
+
+    await newUser.save();
+
+    // Generate tokens
+    const { accessToken, refreshToken } = generateTokenPair(newUser.id, newUser.email, newUser.role);
+
+    // Save refresh token to Redis
+    await redisClient.set(`refreshToken:${newUser.id}`, refreshToken, 'EX', REFRESH_TOKEN_EXPIRY);
+
+    // Set refresh token cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: REFRESH_TOKEN_EXPIRY * 1000,
+      sameSite: 'lax'
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Registration successful',
+      data: {
+        token: accessToken,
+        user: newUser.toJSON()
+      }
+    });
+  } catch (error: any) {
+    console.error('Registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during registration',
+      data: null
+    });
+  }
+};
+
+// POST /api/v1/auth/login
 export const login = async (req: Request, res: Response): Promise<void> => {
-  console.log('authController.login stub called');
-  res.status(200).json({
-    success: true,
-    message: 'User login TODO',
-    data: {
-      token: 'dummy_jwt_access_token',
-      refreshToken: 'dummy_jwt_refresh_token',
-      user: {
-        id: 'dummy_user_id',
-        email: 'dummy@example.com',
-        name: 'Dummy User',
-        role: 'user'
+  try {
+    const bodyResult = loginSchema.safeParse(req.body);
+    if (!bodyResult.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: bodyResult.error.format()
+      });
+      return;
+    }
+
+    const { email, password } = bodyResult.data;
+
+    // Find user
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+        data: null
+      });
+      return;
+    }
+
+    // Compare passwords
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+        data: null
+      });
+      return;
+    }
+
+    // Generate tokens
+    const { accessToken, refreshToken } = generateTokenPair(user.id, user.email, user.role);
+
+    // Save refresh token to Redis
+    await redisClient.set(`refreshToken:${user.id}`, refreshToken, 'EX', REFRESH_TOKEN_EXPIRY);
+
+    // Set refresh token cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: REFRESH_TOKEN_EXPIRY * 1000,
+      sameSite: 'lax'
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        token: accessToken,
+        user: user.toJSON()
+      }
+    });
+  } catch (error: any) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during login',
+      data: null
+    });
+  }
+};
+
+// POST /api/v1/auth/refresh
+export const refresh = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+    if (!refreshToken) {
+      res.status(401).json({
+        success: false,
+        message: 'Refresh token required',
+        data: null
+      });
+      return;
+    }
+
+    // Decode refresh token
+    jwt.verify(refreshToken, JWT_REFRESH_SECRET, async (err: any, decoded: any) => {
+      if (err || !decoded) {
+        res.status(401).json({
+          success: false,
+          message: 'Invalid or expired refresh token',
+          data: null
+        });
+        return;
+      }
+
+      const { id, email, role } = decoded as { id: string; email: string; role: string };
+
+      // Validate refresh token matches value in Redis
+      const storedToken = await redisClient.get(`refreshToken:${id}`);
+      if (!storedToken || storedToken !== refreshToken) {
+        res.status(401).json({
+          success: false,
+          message: 'Session revoked or expired',
+          data: null
+        });
+        return;
+      }
+
+      // Find user to return actual profile data
+      const user = await UserModel.findById(id);
+      if (!user) {
+        res.status(401).json({
+          success: false,
+          message: 'User no longer exists',
+          data: null
+        });
+        return;
+      }
+
+      // Generate new token pair
+      const tokens = generateTokenPair(user.id, user.email, user.role);
+
+      // Save new refresh token in Redis (rotate token)
+      await redisClient.set(`refreshToken:${user.id}`, tokens.refreshToken, 'EX', REFRESH_TOKEN_EXPIRY);
+
+      // Set new refresh token cookie
+      res.cookie('refreshToken', tokens.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: REFRESH_TOKEN_EXPIRY * 1000,
+        sameSite: 'lax'
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Token refreshed successfully',
+        data: {
+          token: tokens.accessToken,
+          user: user.toJSON()
+        }
+      });
+    });
+  } catch (error: any) {
+    console.error('Refresh error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during token refresh',
+      data: null
+    });
+  }
+};
+
+// POST /api/v1/auth/logout
+export const logout = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+    if (refreshToken) {
+      // Decode user ID directly to invalidate Redis key
+      try {
+        const decoded = jwt.decode(refreshToken) as { id: string } | null;
+        if (decoded && decoded.id) {
+          await redisClient.del(`refreshToken:${decoded.id}`);
+        }
+      } catch (err) {
+        console.warn('Could not parse refresh token on logout:', err);
       }
     }
-  });
-};
 
-// TODO: Implement refresh token validation and access token regeneration
-export const refresh = async (req: Request, res: Response): Promise<void> => {
-  console.log('authController.refresh stub called');
-  res.status(200).json({
-    success: true,
-    message: 'Token refresh TODO',
-    data: {
-      token: 'dummy_new_jwt_access_token'
-    }
-  });
-};
+    // Clear cookie
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax'
+    });
 
-// TODO: Implement logout logic, blacklisting refresh tokens or clearing cookies
-export const logout = async (req: Request, res: Response): Promise<void> => {
-  console.log('authController.logout stub called');
-  res.status(200).json({
-    success: true,
-    message: 'User logout TODO'
-  });
+    res.status(200).json({
+      success: true,
+      message: 'User logged out successfully'
+    });
+  } catch (error: any) {
+    console.error('Logout error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during logout'
+    });
+  }
 };

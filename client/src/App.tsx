@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -18,6 +18,7 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = async () => {
     try {
@@ -28,43 +29,51 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   };
 
+  const isActive = (path: string) => {
+    if (path === '/') {
+      return location.pathname === '/' ? 'active' : '';
+    }
+    return location.pathname.startsWith(path) ? 'active' : '';
+  };
+
   return (
-    <div className="app-layout">
-      <header className="app-header">
-        <div className="logo-container">
-          <Link to="/" className="brand-logo">AI Interview Prep</Link>
+    <div className="app-shell">
+      <aside className="app-sidebar">
+        <div className="app-sidebar-logo">
+          <Link to="/">AI Interview Prep</Link>
         </div>
-        <nav className="nav-menu">
-          <Link to="/">Dashboard</Link>
-          <Link to="/resume">Resume</Link>
-          <Link to="/progress">Progress</Link>
-          {user?.role === 'admin' && <Link to="/admin">Admin</Link>}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginLeft: '10px' }}>
-            {user ? (
-              <>
-                <span style={{ fontSize: '0.9rem', color: '#555555' }}>
-                  Hello, <strong>{user.name}</strong>
-                </span>
-                <button 
-                  onClick={handleLogout} 
-                  className="btn btn-secondary btn-sm"
-                  style={{ border: '1px solid #cbd5e1' }}
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <Link to="/login" className="btn-login-nav">Login</Link>
-            )}
-          </div>
+        <nav className="app-sidebar-nav">
+          <Link to="/" className={isActive('/')}>Dashboard</Link>
+          <Link to="/mock-interview" className={isActive('/mock-interview')}>Mock Interview</Link>
+          <Link to="/resume" className={isActive('/resume')}>Resume</Link>
+          <Link to="/progress" className={isActive('/progress')}>Progress</Link>
+          {user?.role === 'admin' && (
+            <Link to="/admin" className={isActive('/admin')}>Admin</Link>
+          )}
         </nav>
-      </header>
-      <main className="app-content">
-        {children}
-      </main>
-      <footer className="app-footer">
-        <p>&copy; 2026 AI Interview Preparation Platform. All rights reserved.</p>
-      </footer>
+      </aside>
+      
+      <div className="app-body">
+        <header className="app-topbar">
+          {user && (
+            <div className="app-user-info">
+              <span className="app-user-name">{user.name}</span>
+              <span className="app-user-role">{user.role}</span>
+            </div>
+          )}
+          <button onClick={handleLogout} className="btn btn-secondary btn-sm">
+            Logout
+          </button>
+        </header>
+        
+        <main className="app-main">
+          {children}
+        </main>
+        
+        <footer className="app-footer">
+          <p>&copy; 2026 AI Interview Preparation Platform. All rights reserved.</p>
+        </footer>
+      </div>
     </div>
   );
 };

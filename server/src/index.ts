@@ -4,6 +4,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import * as dotenv from 'dotenv';
 
+import cookieParser from 'cookie-parser';
+
 // Import routes
 import authRoutes from './routes/auth.routes';
 import interviewRoutes from './routes/interview.routes';
@@ -22,6 +24,7 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/ai_intervi
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 // Basic health check endpoint
 app.get('/health', (req, res) => {
