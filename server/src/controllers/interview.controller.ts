@@ -1,12 +1,23 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
+import crypto from 'crypto';
+import OpenAI from 'openai';
 import { InterviewModel } from '../models/Interview.model';
+import { ResumeModel } from '../models/Resume.model';
+import { offlineResumes } from './resume.controller';
+import redisClient from '../config/redis';
 import type { Question } from '@ai-interview/shared';
 
 // In-memory fallback store for offline mode
 const offlineInterviews: any[] = [];
 
-// Helper: generate mock questions for offline/no-AI mode
+// Helper to check if a valid OpenAI API Key is configured
+const isOpenAiConfigured = (): boolean => {
+  const key = process.env.OPENAI_API_KEY;
+  return Boolean(key && key.trim() !== '' && key !== 'your_openai_api_key_here');
+};
+
+// Helper: generate mock questions when OpenAI is unconfigured or offline
 const buildMockQuestions = (role: string, level: string, techStack: string): Question[] => {
   const diff: 'easy' | 'medium' | 'hard' =
     level === 'senior' ? 'hard' : level === 'mid' ? 'medium' : 'easy';
@@ -75,17 +86,140 @@ const buildMockQuestions = (role: string, level: string, techStack: string): Que
   ];
 };
 
+// Generate questions via OpenAI (or Redis Cache fallback)
+const generateQuestionsWithAI = async (
+  role: string,
+  level: string,
+  techStack: string,
+  resumeText: string
+): Promise<Question[]> => {
+  const cacheKey = `interview_q:${crypto.createHash('md5').update(`${role}:${level}:${techStack}:${resumeText.slice(0, 100)}`).digest('hex')}`;
+  
+  // 1. Check Redis Cache
+  try {
+    const cached = await redisClient.get(cacheKey);
+    if (cached) {
+      console.log('Serving interview questions from Redis cache');
+      return JSON.parse(cached);
+    }
+  } catch (err) {
+    console.warn('Redis cache lookup skipped:', err);
+  }
+
+  // 2. Query OpenAI API
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const prompt = `Generate exactly 10 interview questions for a candidate applying for role: "${role}", experience level: "${level}", tech stack: "${techStack}".
+${resumeText ? `Candidate Resume Context: "${resumeText.slice(0, 1500)}"` : ''}
+
+Respond ONLY with a valid JSON object matching this TypeScript format:
+{
+  "questions": [
+    {
+      "id": "q_1",
+      "text": "Question text here...",
+      "category": "Behavioral" | "Technical" | "System Design",
+      "difficulty": "easy" | "medium" | "hard"
+    }
+  ]
+}`;
+
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: 'You are a senior technical interviewer. Always return responses in structured JSON.' },
+      { role: 'user', content: prompt }
+    ],
+    response_format: { type: 'json_object' }
+  });
+
+  const content = completion.choices[0]?.message?.content || '{}';
+  const parsed = JSON.parse(content);
+  const questions: Question[] = parsed.questions || [];
+
+  if (!questions.length) {
+    throw new Error('OpenAI returned invalid questions structure');
+  }
+
+  // Ensure unique IDs
+  const formatted = questions.map((q, idx) => ({
+    ...q,
+    id: q.id || `q_${idx + 1}`
+  }));
+
+  // 3. Cache in Redis for 24 Hours
+  try {
+    await redisClient.set(cacheKey, JSON.stringify(formatted), 'EX', 86400);
+  } catch (err) {
+    console.warn('Failed to cache questions in Redis:', err);
+  }
+
+  return formatted;
+};
+
+// Evaluate answer via OpenAI
+const evaluateAnswerWithAI = async (
+  questionText: string,
+  userAnswer: string
+): Promise<{ correctnessScore: number; clarityScore: number; feedbackText: string; suggestedImprovement: string }> => {
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const prompt = `Evaluate the candidate's interview answer:
+Question: "${questionText}"
+Candidate Answer: "${userAnswer}"
+
+Return ONLY a JSON object with:
+- "correctnessScore": number from 0 to 100
+- "clarityScore": number from 0 to 100
+- "feedbackText": string summarizing key strengths & weaknesses
+- "suggestedImprovement": string offering concise actionable tips`;
+
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: 'You are an expert technical interviewer evaluating candidates. Respond ONLY in valid JSON.' },
+      { role: 'user', content: prompt }
+    ],
+    response_format: { type: 'json_object' }
+  });
+
+  const content = completion.choices[0]?.message?.content || '{}';
+  return JSON.parse(content);
+};
+
 // POST /api/v1/interviews — generate questions, create session
 export const createInterview = async (req: Request, res: Response): Promise<void> => {
   try {
     const { role, level, techStack, useResume } = req.body;
     const userId = req.user?.id || 'offline_user';
 
-    const questions = buildMockQuestions(
-      role || 'Software Engineer',
-      level || 'mid',
-      techStack || 'React, Node.js'
-    );
+    let resumeText = '';
+    if (useResume) {
+      if (mongoose.connection.readyState === 1) {
+        const resumeDoc = await ResumeModel.findOne({ userId }).sort({ createdAt: -1 });
+        if (resumeDoc?.parsedText) resumeText = resumeDoc.parsedText;
+      } else {
+        const offlineDoc = offlineResumes.find(r => r.userId === userId);
+        if (offlineDoc?.parsedText) resumeText = offlineDoc.parsedText;
+      }
+    }
+
+    let questions: Question[];
+    if (isOpenAiConfigured()) {
+      try {
+        console.log('Generating interview questions using OpenAI API...');
+        questions = await generateQuestionsWithAI(
+          role || 'Software Engineer',
+          level || 'mid',
+          techStack || 'React, Node.js',
+          resumeText
+        );
+      } catch (err) {
+        console.error('OpenAI question generation error. Falling back to mock generator:', err);
+        questions = buildMockQuestions(role || 'Software Engineer', level || 'mid', techStack || 'React, Node.js');
+      }
+    } else {
+      console.log('OPENAI_API_KEY not configured. Using default 10-question template generator.');
+      questions = buildMockQuestions(role || 'Software Engineer', level || 'mid', techStack || 'React, Node.js');
+    }
 
     const title = `${(level || 'mid').charAt(0).toUpperCase() + (level || 'mid').slice(1)} ${role || 'Engineer'} — ${techStack || 'General'} (${useResume ? 'With CV' : 'No CV'})`;
 
@@ -130,31 +264,56 @@ export const submitInterview = async (req: Request, res: Response): Promise<void
     const { questionId, answerText } = req.body;
     const answerLen = (answerText || '').length;
 
-    // Deterministic mock scoring (no OpenAI key needed)
-    const correctnessScore = Math.min(65 + Math.floor(Math.random() * 25) + (answerLen > 50 ? 10 : 0), 100);
-    const clarityScore = Math.min(70 + Math.floor(Math.random() * 20) + (answerLen > 100 ? 10 : 0), 100);
+    let feedback: { correctnessScore: number; clarityScore: number; feedbackText: string; suggestedImprovement: string };
 
-    const feedback = {
-      correctnessScore,
-      clarityScore,
-      feedbackText: 'Your answer is structured reasonably and covers key architectural/methodological highlights correctly.',
-      suggestedImprovement: 'Consider elaborating on specific design trade-offs, metrics (e.g. throughput gains), and fallback options.'
-    };
+    if (isOpenAiConfigured()) {
+      try {
+        console.log(`Evaluating answer for question ${questionId} using OpenAI API...`);
+        let questionText = 'Technical interview question';
+        if (mongoose.connection.readyState === 1) {
+          const interviewDoc = await InterviewModel.findById(req.params.id);
+          const q = interviewDoc?.questions?.find(item => item.id === questionId);
+          if (q) questionText = q.text;
+        }
 
-    // Persist to DB if available
+        feedback = await evaluateAnswerWithAI(questionText, answerText || '');
+      } catch (err) {
+        console.error('OpenAI evaluation failed. Falling back to deterministic scoring:', err);
+        const correctnessScore = Math.min(65 + Math.floor(Math.random() * 25) + (answerLen > 50 ? 10 : 0), 100);
+        const clarityScore = Math.min(70 + Math.floor(Math.random() * 20) + (answerLen > 100 ? 10 : 0), 100);
+        feedback = {
+          correctnessScore,
+          clarityScore,
+          feedbackText: 'Your answer is structured reasonably and covers key architectural/methodological highlights correctly.',
+          suggestedImprovement: 'Consider elaborating on specific design trade-offs, metrics (e.g. throughput gains), and fallback options.'
+        };
+      }
+    } else {
+      const correctnessScore = Math.min(65 + Math.floor(Math.random() * 25) + (answerLen > 50 ? 10 : 0), 100);
+      const clarityScore = Math.min(70 + Math.floor(Math.random() * 20) + (answerLen > 100 ? 10 : 0), 100);
+
+      feedback = {
+        correctnessScore,
+        clarityScore,
+        feedbackText: 'Your answer is structured reasonably and covers key architectural/methodological highlights correctly.',
+        suggestedImprovement: 'Consider elaborating on specific design trade-offs, metrics (e.g. throughput gains), and fallback options.'
+      };
+    }
+
+    // Persist feedback to DB if connected
     if (mongoose.connection.readyState === 1) {
       const interview = await InterviewModel.findById(req.params.id);
       if (interview) {
         if (!interview.feedback) {
           interview.feedback = {
-            overallScore: correctnessScore,
+            overallScore: feedback.correctnessScore,
             detailedFeedback: feedback.feedbackText,
             questionWiseScore: []
           };
         }
         interview.feedback.questionWiseScore.push({
           questionId,
-          score: correctnessScore,
+          score: feedback.correctnessScore,
           feedback: feedback.feedbackText
         });
         await interview.save();
