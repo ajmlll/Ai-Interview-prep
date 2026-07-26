@@ -2,8 +2,11 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
+import mongoose from 'mongoose';
 import { UserModel } from '../models/User.model';
 import redisClient from '../config/redis';
+
+export const offlineUsers: any[] = [];
 
 // Zod schemas for body validation
 const registerSchema = z.object({
@@ -45,6 +48,51 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
 
     const { name, email, password } = bodyResult.data;
+
+    // Offline fallback if MongoDB is down
+    if (mongoose.connection.readyState !== 1) {
+      const existingOffline = offlineUsers.find(u => u.email === email);
+      if (existingOffline) {
+        res.status(400).json({
+          success: false,
+          message: 'A user with this email address already exists.',
+          data: null
+        });
+        return;
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      const newUser = {
+        id: `offline_user_${Date.now()}`,
+        name,
+        email,
+        role: 'user',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      offlineUsers.push({ ...newUser, passwordHash });
+
+      const { accessToken, refreshToken } = generateTokenPair(newUser.id, newUser.email, newUser.role);
+      await redisClient.set(`refreshToken:${newUser.id}`, refreshToken, 'EX', REFRESH_TOKEN_EXPIRY);
+
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: REFRESH_TOKEN_EXPIRY * 1000,
+        sameSite: 'lax'
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Registration successful (offline fallback)',
+        data: {
+          token: accessToken,
+          user: newUser
+        }
+      });
+      return;
+    }
 
     // Check if user already exists
     const existingUser = await UserModel.findOne({ email });
@@ -116,6 +164,50 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const { email, password } = bodyResult.data;
+
+    // Offline fallback if MongoDB is down
+    if (mongoose.connection.readyState !== 1) {
+      const user = offlineUsers.find(u => u.email === email);
+      if (!user) {
+        res.status(401).json({
+          success: false,
+          message: 'Invalid email or password',
+          data: null
+        });
+        return;
+      }
+
+      const isMatch = await bcrypt.compare(password, user.passwordHash);
+      if (!isMatch) {
+        res.status(401).json({
+          success: false,
+          message: 'Invalid email or password',
+          data: null
+        });
+        return;
+      }
+
+      const { accessToken, refreshToken } = generateTokenPair(user.id, user.email, user.role);
+      await redisClient.set(`refreshToken:${user.id}`, refreshToken, 'EX', REFRESH_TOKEN_EXPIRY);
+
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: REFRESH_TOKEN_EXPIRY * 1000,
+        sameSite: 'lax'
+      });
+
+      const { passwordHash, ...userClean } = user;
+      res.status(200).json({
+        success: true,
+        message: 'Login successful (offline fallback)',
+        data: {
+          token: accessToken,
+          user: userClean
+        }
+      });
+      return;
+    }
 
     // Find user
     const user = await UserModel.findOne({ email });
@@ -209,8 +301,21 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
       }
 
       // Find user to return actual profile data
-      const user = await UserModel.findById(id);
-      if (!user) {
+      let userClean: any = null;
+      if (mongoose.connection.readyState !== 1) {
+        const found = offlineUsers.find(u => u.id === id);
+        if (found) {
+          const { passwordHash, ...rest } = found;
+          userClean = rest;
+        }
+      } else {
+        const user = await UserModel.findById(id);
+        if (user) {
+          userClean = user.toJSON();
+        }
+      }
+
+      if (!userClean) {
         res.status(401).json({
           success: false,
           message: 'User no longer exists',
@@ -220,10 +325,10 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
       }
 
       // Generate new token pair
-      const tokens = generateTokenPair(user.id, user.email, user.role);
+      const tokens = generateTokenPair(userClean.id, userClean.email, userClean.role);
 
       // Save new refresh token in Redis (rotate token)
-      await redisClient.set(`refreshToken:${user.id}`, tokens.refreshToken, 'EX', REFRESH_TOKEN_EXPIRY);
+      await redisClient.set(`refreshToken:${userClean.id}`, tokens.refreshToken, 'EX', REFRESH_TOKEN_EXPIRY);
 
       // Set new refresh token cookie
       res.cookie('refreshToken', tokens.refreshToken, {
@@ -238,7 +343,7 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
         message: 'Token refreshed successfully',
         data: {
           token: tokens.accessToken,
-          user: user.toJSON()
+          user: userClean
         }
       });
     });

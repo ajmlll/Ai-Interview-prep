@@ -34,6 +34,7 @@ app.get('/health', (req, res) => {
 // Register API Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/interviews', interviewRoutes);
+app.use('/api/v1/resume', resumeRoutes);
 app.use('/api/v1/resumes', resumeRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/users', userRoutes);

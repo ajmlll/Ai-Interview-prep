@@ -1,19 +1,21 @@
 import { Router } from 'express';
-import { uploadResume, listResumes, getResume } from '../controllers/resume.controller';
-import { authMiddleware } from '../middlewares/auth.middleware';
+import { uploadResume, getLatestResume, listResumes, getResume, upload } from '../controllers/resume.controller';
+import { requireAuth } from '../middlewares/auth.middleware';
 
 const router = Router();
 
 // Apply auth middleware to all resume endpoints
-router.use(authMiddleware);
+router.use(requireAuth);
 
-// POST /api/v1/resumes
-router.post('/', uploadResume);
+// Support POST /api/v1/resume/upload or POST /api/v1/resumes
+router.post('/upload', upload.single('file'), uploadResume);
+router.post('/', upload.single('file'), uploadResume);
 
-// GET /api/v1/resumes
+// Support GET /api/v1/resume/me or GET /api/v1/resumes/me
+router.get('/me', getLatestResume);
+
+// GET /api/v1/resumes list and detail
 router.get('/', listResumes);
-
-// GET /api/v1/resumes/:id
 router.get('/:id', getResume);
 
 export default router;
