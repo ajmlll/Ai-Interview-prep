@@ -14,11 +14,12 @@ export const generateInterview = async (
   role: string,
   level: string,
   techStack: string,
-  useResume: boolean
+  useResume: boolean,
+  jobDescription?: string
 ): Promise<Interview> => {
   const result = await apiRequest<Interview>('/interviews', {
     method: 'POST',
-    body: JSON.stringify({ role, level, techStack, useResume })
+    body: JSON.stringify({ role, level, techStack, useResume, jobDescription })
   });
 
   if (!result.data) {

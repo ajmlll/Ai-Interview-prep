@@ -1,6 +1,14 @@
 import type { ResumeDoc } from '@ai-interview/shared';
 import { apiRequest, apiUpload } from './client';
 
+export interface JDAnalysisResult {
+  matchScore: number;
+  matchingSkills: string[];
+  missingSkills: string[];
+  summary: string;
+  tailoredRecommendations: string[];
+}
+
 export const uploadResume = async (
   file: File,
   onProgress: (progress: number) => void
@@ -25,5 +33,18 @@ export const uploadResume = async (
 
 export const getMyResume = async (): Promise<ResumeDoc | null> => {
   const result = await apiRequest<ResumeDoc>('/resume/me');
+  return result.data;
+};
+
+export const analyzeJobDescription = async (jobDescription: string): Promise<JDAnalysisResult> => {
+  const result = await apiRequest<JDAnalysisResult>('/resume/analyze-jd', {
+    method: 'POST',
+    body: JSON.stringify({ jobDescription })
+  });
+
+  if (!result.data) {
+    throw new Error(result.message || 'Failed to analyze Job Description');
+  }
+
   return result.data;
 };

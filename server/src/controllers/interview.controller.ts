@@ -123,9 +123,10 @@ const generateQuestionsWithAI = async (
   role: string,
   level: string,
   techStack: string,
-  resumeText: string
+  resumeText: string,
+  jobDescription?: string
 ): Promise<Question[]> => {
-  const cacheKey = `interview_q:${crypto.createHash('md5').update(`${role}:${level}:${techStack}:${resumeText.slice(0, 100)}`).digest('hex')}`;
+  const cacheKey = `interview_q:${crypto.createHash('md5').update(`${role}:${level}:${techStack}:${resumeText.slice(0, 100)}:${(jobDescription || '').slice(0, 100)}`).digest('hex')}`;
   
   // 1. Check Redis Cache
   try {
@@ -143,6 +144,7 @@ const generateQuestionsWithAI = async (
   const model = process.env.AI_MODEL || 'gemini-2.5-flash-lite';
 
   const prompt = `Generate exactly 10 interview questions for a candidate applying for role: "${role}", experience level: "${level}", tech stack: "${techStack}".
+${jobDescription ? `Target Job Description Requirements: "${jobDescription.slice(0, 1500)}"` : ''}
 ${resumeText ? `Candidate Resume Context: "${resumeText.slice(0, 1500)}"` : ''}
 
 Respond ONLY with a valid JSON object matching this TypeScript format:
@@ -232,7 +234,7 @@ Return ONLY a JSON object with:
 // POST /api/v1/interviews & POST /api/v1/interview/generate — generate questions, create session
 export const createInterview = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { role, level, techStack, useResume } = req.body;
+    const { role, level, techStack, useResume, jobDescription } = req.body;
     const userId = req.user?.id || 'offline_user';
 
     let resumeText = '';
@@ -254,7 +256,8 @@ export const createInterview = async (req: Request, res: Response): Promise<void
           role || 'Software Engineer',
           level || 'mid',
           techStack || 'React, Node.js',
-          resumeText
+          resumeText,
+          jobDescription
         );
       } catch (err: any) {
         console.error('AI question generation error after retries:', err.message || err);

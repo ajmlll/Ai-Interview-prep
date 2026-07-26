@@ -12,10 +12,20 @@ const MockInterview: React.FC = () => {
   const [step, setStep] = useState<'setup' | 'interview' | 'completed'>('setup');
   
   // Setup Options
+  // Setup Options
   const [role, setRole] = useState('Full Stack Developer');
   const [level, setLevel] = useState('mid');
   const [techStack, setTechStack] = useState('React, TypeScript, Node.js');
   const [useResume, setUseResume] = useState(false);
+  const [jobDescription, setJobDescription] = useState('');
+
+  React.useEffect(() => {
+    const cachedJd = sessionStorage.getItem('jd_tailored_text');
+    if (cachedJd) {
+      setJobDescription(cachedJd);
+      setUseResume(true);
+    }
+  }, []);
 
   // Active Session Details
   const [loading, setLoading] = useState(false);
@@ -64,7 +74,7 @@ const MockInterview: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const session = await generateInterview(role, level, techStack, useResume);
+      const session = await generateInterview(role, level, techStack, useResume, jobDescription);
       setInterview(session);
       setStep('interview');
       setCurrentIdx(0);
