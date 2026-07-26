@@ -9,7 +9,7 @@ import redisClient from '../config/redis';
 import type { Question } from '@ai-interview/shared';
 
 // In-memory fallback store for offline mode
-const offlineInterviews: any[] = [];
+export const offlineInterviews: any[] = [];
 
 // Helper to check if a valid OpenAI / Gemini API Key is configured
 const isOpenAiConfigured = (): boolean => {

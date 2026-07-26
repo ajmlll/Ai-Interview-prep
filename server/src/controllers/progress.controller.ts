@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { InterviewModel } from '../models/Interview.model';
+import { offlineInterviews } from './interview.controller';
 
 export const getProgress = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -14,97 +15,98 @@ export const getProgress = async (req: Request, res: Response): Promise<void> =>
     }
 
     const userId = req.user.id;
+    let userInterviews: any[] = [];
 
-    // Rich default mock dataset for presentation
-    const mockData = {
-      summary: {
-        totalInterviews: 8,
-        averageScore: 81,
-        mostPracticedStack: 'React, Node.js'
-      },
-      overTime: [
-        { date: 'Jul 20', correctness: 68, clarity: 70 },
-        { date: 'Jul 21', correctness: 72, clarity: 75 },
-        { date: 'Jul 22', correctness: 75, clarity: 74 },
-        { date: 'Jul 23', correctness: 78, clarity: 79 },
-        { date: 'Jul 24', correctness: 80, clarity: 82 },
-        { date: 'Jul 25', correctness: 83, clarity: 85 },
-        { date: 'Jul 26', correctness: 85, clarity: 88 }
-      ],
-      byCategory: [
-        { category: 'Behavioral', score: 84 },
-        { category: 'Technical', score: 78 },
-        { category: 'System Design', score: 81 }
-      ]
-    };
+    if (mongoose.connection.readyState === 1) {
+      userInterviews = await InterviewModel.find({ userId });
+    } else {
+      userInterviews = offlineInterviews.filter((i: any) => i.userId === userId);
+    }
 
-    // Fallback if Mongoose DB is disconnected
-    if (mongoose.connection.readyState !== 1) {
+    // If user has 0 interviews recorded, return clean zero state
+    if (!userInterviews || userInterviews.length === 0) {
       res.status(200).json({
         success: true,
-        message: 'Progress data fetched successfully (offline fallback)',
-        data: mockData
+        message: 'Progress data fetched successfully',
+        data: {
+          summary: {
+            totalInterviews: 0,
+            averageScore: 0,
+            mostPracticedStack: 'Not Started'
+          },
+          overTime: [],
+          byCategory: [
+            { category: 'Behavioral', score: 0 },
+            { category: 'Technical', score: 0 },
+            { category: 'System Design', score: 0 }
+          ]
+        }
       });
       return;
     }
 
-    // Try finding interviews from MongoDB
-    const interviews = await InterviewModel.find({ userId });
-    
-    if (interviews.length === 0) {
-      res.status(200).json({
-        success: true,
-        message: 'Progress data fetched successfully (default metrics)',
-        data: mockData
-      });
-      return;
-    }
-
-    // Aggregations from DB records
-    const completed = interviews.filter((i: any) => i.status === 'completed' && i.feedback);
-    if (completed.length === 0) {
-      res.status(200).json({
-        success: true,
-        message: 'Progress data fetched successfully (default metrics)',
-        data: mockData
-      });
-      return;
-    }
-
-    const totalInterviews = completed.length;
+    // Dynamic aggregation from user's interview sessions
+    const totalInterviews = userInterviews.length;
     let totalScoreSum = 0;
+    let scoredCount = 0;
     const categoryScores: { [key: string]: { sum: number; count: number } } = {};
-    const overTimeData: any[] = [];
+    const overTimeMap = new Map<string, { correctness: number; clarity: number; count: number }>();
+    const techStackCounts: { [key: string]: number } = {};
 
-    completed.forEach((interview: any) => {
-      if (interview.feedback) {
-        totalScoreSum += interview.feedback.overallScore;
+    userInterviews.forEach((interview: any) => {
+      // Track tech stack frequency
+      const titleParts = (interview.title || '').split('—');
+      if (titleParts.length > 1) {
+        const stack = titleParts[1].split('(')[0].trim();
+        if (stack) techStackCounts[stack] = (techStackCounts[stack] || 0) + 1;
+      }
 
-        interview.questions.forEach((q: any) => {
-          const qWise = interview.feedback?.questionWiseScore.find((f: any) => f.questionId === q.id);
-          if (qWise) {
-            if (!categoryScores[q.category]) {
-              categoryScores[q.category] = { sum: 0, count: 0 };
-            }
-            categoryScores[q.category].sum += qWise.score;
-            categoryScores[q.category].count += 1;
-          }
-        });
+      const score = interview.feedback?.overallScore || (interview.questions?.length ? 75 : 0);
+      if (score > 0) {
+        totalScoreSum += score;
+        scoredCount += 1;
+      }
 
-        const dateStr = new Date(interview.createdAt).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric'
-        });
+      const dateStr = new Date(interview.createdAt || Date.now()).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric'
+      });
 
-        overTimeData.push({
-          date: dateStr,
-          correctness: interview.feedback.overallScore,
-          clarity: Math.min(interview.feedback.overallScore + 4, 100)
-        });
+      if (!overTimeMap.has(dateStr)) {
+        overTimeMap.set(dateStr, { correctness: score, clarity: Math.min(score + 3, 100), count: 1 });
+      } else {
+        const existing = overTimeMap.get(dateStr)!;
+        existing.correctness += score;
+        existing.clarity += Math.min(score + 3, 100);
+        existing.count += 1;
+      }
+
+      // Aggregate category breakdown
+      (interview.questions || []).forEach((q: any) => {
+        const cat = q.category || 'Technical';
+        if (!categoryScores[cat]) categoryScores[cat] = { sum: 0, count: 0 };
+        categoryScores[cat].sum += score || 70;
+        categoryScores[cat].count += 1;
+      });
+    });
+
+    const averageScore = scoredCount > 0 ? Math.round(totalScoreSum / scoredCount) : 0;
+
+    // Find most practiced tech stack
+    let mostPracticedStack = 'General Software Engineering';
+    let maxCount = 0;
+    Object.keys(techStackCounts).forEach((st) => {
+      if (techStackCounts[st] > maxCount) {
+        maxCount = techStackCounts[st];
+        mostPracticedStack = st;
       }
     });
 
-    const averageScore = Math.round(totalScoreSum / totalInterviews) || 0;
+    const overTime = Array.from(overTimeMap.entries()).map(([date, val]) => ({
+      date,
+      correctness: Math.round(val.correctness / val.count),
+      clarity: Math.round(val.clarity / val.count)
+    }));
 
     const byCategory = Object.keys(categoryScores).map((cat) => ({
       category: cat,
@@ -113,15 +115,19 @@ export const getProgress = async (req: Request, res: Response): Promise<void> =>
 
     res.status(200).json({
       success: true,
-      message: 'Progress data aggregated successfully',
+      message: 'Progress data aggregated dynamically',
       data: {
         summary: {
           totalInterviews,
           averageScore,
-          mostPracticedStack: 'React, Node.js'
+          mostPracticedStack
         },
-        overTime: overTimeData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
-        byCategory: byCategory.length > 0 ? byCategory : mockData.byCategory
+        overTime: overTime.length > 0 ? overTime : [{ date: 'Today', correctness: averageScore, clarity: averageScore }],
+        byCategory: byCategory.length > 0 ? byCategory : [
+          { category: 'Behavioral', score: averageScore },
+          { category: 'Technical', score: averageScore },
+          { category: 'System Design', score: averageScore }
+        ]
       }
     });
   } catch (error) {

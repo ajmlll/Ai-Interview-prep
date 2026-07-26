@@ -2,6 +2,11 @@ import * as dotenv from 'dotenv';
 // Load environment variables before any submodule imports
 dotenv.config();
 
+import dns from 'dns';
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch {}
+
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -71,7 +76,9 @@ app.use(globalErrorHandler);
 const connectAndStart = async () => {
   try {
     console.log('Connecting to MongoDB...');
-    await mongoose.connect(MONGO_URI);
+    await mongoose.connect(MONGO_URI, {
+      serverSelectionTimeoutMS: 10000
+    });
     console.log('Connected to MongoDB successfully.');
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);

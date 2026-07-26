@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { getProgress } from '../api/progress';
 import type { ProgressData } from '../api/progress';
 
 const Progress: React.FC = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState<ProgressData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -25,7 +27,7 @@ const Progress: React.FC = () => {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', flexDirection: 'column' }}>
         <h3>Loading Progress Metrics...</h3>
-        <p>Analyzing historical mock transcripts...</p>
+        <p>Analyzing historical mock transcripts from MongoDB...</p>
       </div>
     );
   }
@@ -36,9 +38,20 @@ const Progress: React.FC = () => {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>Your Preparation Progress</h1>
-        <p>Monitor your performance scores across categories and track improvement timelines.</p>
+        <h1>📈 Your Preparation Progress</h1>
+        <p>Monitor your performance scores across categories and track live improvement timelines from MongoDB database records.</p>
       </div>
+
+      {data.summary.totalInterviews === 0 && (
+        <div style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '1.25rem', borderRadius: '8px', border: '1px solid #7dd3fc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div>
+            <strong>No Sessions Recorded Yet:</strong> Take your first mock interview to start generating dynamic performance charts and category analytics!
+          </div>
+          <button onClick={() => navigate('/mock-interview')} className="btn btn-primary btn-sm">
+            🚀 Start Mock Interview
+          </button>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="stats-grid">
@@ -52,7 +65,7 @@ const Progress: React.FC = () => {
         </div>
         <div className="stat-card">
           <h3>Most Practiced Tech Stack</h3>
-          <p className="stat-number" style={{ fontSize: '1.5rem', marginTop: '15px' }}>
+          <p className="stat-number" style={{ fontSize: '1.4rem', marginTop: '15px' }}>
             {data.summary.mostPracticedStack}
           </p>
         </div>
