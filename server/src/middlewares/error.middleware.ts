@@ -42,48 +42,45 @@ export const notFoundHandler = (_req: Request, res: Response): void => {
 // ─── Rate Limiters ────────────────────────────────────────────────────────────
 
 /**
- * Auth rate limiter: 20 requests per 15 minutes per IP.
- * Applied on /api/v1/auth routes to prevent brute-force attacks.
+ * Auth rate limiter: relaxed max limit to prevent unwanted local development blocks.
  */
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20,
+  max: 1000, // 1000 requests per 15 mins to avoid blocking
   standardHeaders: true,
   legacyHeaders: false,
   handler: (_req, res) => {
     res.status(429).json({
       success: false,
-      message: 'Too many authentication attempts. Please try again in 15 minutes.',
+      message: 'Too many authentication attempts. Please try again in a few moments.',
       data: null
     });
   }
 });
 
 /**
- * Interview generation rate limiter: 30 requests per hour per IP.
- * Applied on POST /api/v1/interviews to prevent AI cost abuse.
+ * Interview generation rate limiter: relaxed limit.
  */
 export const interviewRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 30,
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (_req, res) => {
     res.status(429).json({
       success: false,
-      message: 'Interview generation rate limit exceeded. Please try again in an hour.',
+      message: 'Interview generation rate limit exceeded. Please try again in a few moments.',
       data: null
     });
   }
 });
 
 /**
- * General API rate limiter: 200 requests per 5 minutes per IP.
- * Applied globally as a baseline.
+ * General API rate limiter.
  */
 export const generalRateLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutes
-  max: 200,
+  max: 2000,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (_req, res) => {

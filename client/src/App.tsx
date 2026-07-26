@@ -38,36 +38,48 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return location.pathname.startsWith(path) ? 'active' : '';
   };
 
+  const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
+
   return (
     <div className="app-shell">
       <aside className="app-sidebar">
         <div className="app-sidebar-logo">
           <Link to="/">
-            <span style={{ fontSize: '1.4rem' }}>⚡</span> AI Interview Prep
+            <div className="brand-logo-badge">
+              <span>⚡</span>
+            </div>
+            <span className="brand-name">AI Interview Prep</span>
           </Link>
         </div>
         <nav className="app-sidebar-nav">
           <Link to="/" className={isActive('/')}>
-            <span>📊</span> Dashboard
+            <span className="nav-icon">📊</span>
+            <span className="nav-label">Dashboard</span>
           </Link>
           <Link to="/mock-interview" className={isActive('/mock-interview')}>
-            <span>🎙️</span> Mock Interview
+            <span className="nav-icon">🎙️</span>
+            <span className="nav-label">Mock Interview</span>
           </Link>
           <Link to="/resume" className={isActive('/resume')}>
-            <span>📄</span> Resume Studio & Audit
+            <span className="nav-icon">📄</span>
+            <span className="nav-label">Resume Studio & Audit</span>
           </Link>
           <Link to="/jd-analyzer" className={isActive('/jd-analyzer')}>
-            <span>🎯</span> JD Match & ATS
+            <span className="nav-icon">🎯</span>
+            <span className="nav-label">JD Match & ATS</span>
           </Link>
           <Link to="/cover-letter" className={isActive('/cover-letter')}>
-            <span>✉️</span> Cover Letter & Outreach
+            <span className="nav-icon">✉️</span>
+            <span className="nav-label">Cover Letter & Outreach</span>
           </Link>
           <Link to="/progress" className={isActive('/progress')}>
-            <span>📈</span> Performance & Analytics
+            <span className="nav-icon">📈</span>
+            <span className="nav-label">Performance & Analytics</span>
           </Link>
           {user?.role === 'admin' && (
             <Link to="/admin" className={isActive('/admin')}>
-              <span>🛠️</span> Admin Dashboard
+              <span className="nav-icon">🛠️</span>
+              <span className="nav-label">Admin Dashboard</span>
             </Link>
           )}
         </nav>
@@ -76,13 +88,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="app-body">
         <header className="app-topbar">
           {user && (
-            <div className="app-user-info">
-              <span className="app-user-name">{user.name}</span>
-              <span className="app-user-role">{user.role}</span>
+            <div className="app-user-profile-pill">
+              <div className="avatar-ring">
+                <span className="avatar-initial">{userInitial}</span>
+              </div>
+              <div className="app-user-meta">
+                <span className="app-user-name">{user.name}</span>
+                <span className="app-user-role-badge">
+                  <span className="role-dot"></span>
+                  {user.role}
+                </span>
+              </div>
             </div>
           )}
-          <button onClick={handleLogout} className="btn btn-secondary btn-sm">
-            Logout
+          <button onClick={handleLogout} className="btn-logout" title="Sign out of account">
+            <span className="logout-icon">🚪</span>
+            <span>Logout</span>
           </button>
         </header>
         
