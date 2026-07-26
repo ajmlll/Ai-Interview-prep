@@ -35,6 +35,9 @@ const InterviewSchema = new Schema<IInterviewDocument>({
       r.id = r._id.toString();
       delete r._id;
       delete r.__v;
+      // Ensure timestamp Dates are serialized as ISO strings (matches shared Interview type)
+      if (r.createdAt instanceof Date) r.createdAt = r.createdAt.toISOString();
+      if (r.updatedAt instanceof Date) r.updatedAt = r.updatedAt.toISOString();
       return r;
     }
   }

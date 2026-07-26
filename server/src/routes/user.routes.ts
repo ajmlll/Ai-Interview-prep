@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { getProfile, getProgress } from '../controllers/user.controller';
-import { authMiddleware } from '../middlewares/auth.middleware';
+import { requireAuth } from '../middlewares/auth.middleware';
 
 const router = Router();
 
-// Apply auth middleware to all user endpoints
-router.use(authMiddleware);
+// Apply requireAuth to all user endpoints
+router.use(requireAuth);
 
 // GET /api/v1/users/profile
 router.get('/profile', getProfile);
