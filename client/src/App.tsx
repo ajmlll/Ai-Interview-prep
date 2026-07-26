@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -7,6 +7,8 @@ import MockInterview from './pages/MockInterview';
 import Resume from './pages/Resume';
 import AdminDashboard from './pages/AdminDashboard';
 import Progress from './pages/Progress';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { RequireAuth } from './components/RequireAuth';
 import './App.css';
 
 interface LayoutProps {
@@ -14,6 +16,18 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
+
   return (
     <div className="app-layout">
       <header className="app-header">
@@ -24,8 +38,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <Link to="/">Dashboard</Link>
           <Link to="/resume">Resume</Link>
           <Link to="/progress">Progress</Link>
-          <Link to="/admin">Admin</Link>
-          <Link to="/login" className="btn-login-nav">Login</Link>
+          {user?.role === 'admin' && <Link to="/admin">Admin</Link>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginLeft: '10px' }}>
+            {user ? (
+              <>
+                <span style={{ fontSize: '0.9rem', color: '#555555' }}>
+                  Hello, <strong>{user.name}</strong>
+                </span>
+                <button 
+                  onClick={handleLogout} 
+                  className="btn btn-secondary btn-sm"
+                  style={{ border: '1px solid #cbd5e1' }}
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <Link to="/login" className="btn-login-nav">Login</Link>
+            )}
+          </div>
         </nav>
       </header>
       <main className="app-content">
@@ -38,25 +69,33 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   );
 };
 
+function AppContent() {
+  return (
+    <Routes>
+      {/* Auth routes without Layout */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+
+      {/* Protected App routes with Layout */}
+      <Route path="/" element={<RequireAuth><Layout><Dashboard /></Layout></RequireAuth>} />
+      <Route path="/mock-interview" element={<RequireAuth><Layout><MockInterview /></Layout></RequireAuth>} />
+      <Route path="/resume" element={<RequireAuth><Layout><Resume /></Layout></RequireAuth>} />
+      <Route path="/progress" element={<RequireAuth><Layout><Progress /></Layout></RequireAuth>} />
+      <Route path="/admin" element={<RequireAuth><Layout><AdminDashboard /></Layout></RequireAuth>} />
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
+  );
+}
+
 function App() {
   return (
-    <Router>
-      <Routes>
-        {/* Auth routes without Layout */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-
-        {/* App routes with Layout */}
-        <Route path="/" element={<Layout><Dashboard /></Layout>} />
-        <Route path="/mock-interview" element={<Layout><MockInterview /></Layout>} />
-        <Route path="/resume" element={<Layout><Resume /></Layout>} />
-        <Route path="/progress" element={<Layout><Progress /></Layout>} />
-        <Route path="/admin" element={<Layout><AdminDashboard /></Layout>} />
-
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <AppContent />
+      </Router>
+    </AuthProvider>
   );
 }
 
