@@ -6,7 +6,58 @@ import mongoose from 'mongoose';
 import { UserModel } from '../models/User.model';
 import redisClient from '../config/redis';
 
-export const offlineUsers: any[] = [];
+const defaultPasswordHash = bcrypt.hashSync('password123', 10);
+
+export const offlineUsers: any[] = [
+  {
+    id: 'offline_admin_001',
+    name: 'Admin User',
+    email: 'admin@example.com',
+    passwordHash: defaultPasswordHash,
+    role: 'admin',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'offline_user_002',
+    name: 'Demo Candidate',
+    email: 'user@example.com',
+    passwordHash: defaultPasswordHash,
+    role: 'user',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
+export const seedDefaultUsers = async () => {
+  try {
+    if (mongoose.connection.readyState !== 1) return;
+    
+    const adminExists = await UserModel.findOne({ email: 'admin@example.com' });
+    if (!adminExists) {
+      await UserModel.create({
+        name: 'Admin User',
+        email: 'admin@example.com',
+        passwordHash: defaultPasswordHash,
+        role: 'admin'
+      });
+      console.log('Seeded default admin account (admin@example.com / password123)');
+    }
+
+    const userExists = await UserModel.findOne({ email: 'user@example.com' });
+    if (!userExists) {
+      await UserModel.create({
+        name: 'Demo Candidate',
+        email: 'user@example.com',
+        passwordHash: defaultPasswordHash,
+        role: 'user'
+      });
+      console.log('Seeded default user account (user@example.com / password123)');
+    }
+  } catch (err) {
+    console.error('Error seeding default users:', err);
+  }
+};
 
 // Zod schemas for body validation
 const registerSchema = z.object({

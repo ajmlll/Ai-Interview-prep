@@ -15,6 +15,7 @@ import cookieParser from 'cookie-parser';
 
 // Import routes
 import authRoutes from './routes/auth.routes';
+import { seedDefaultUsers } from './controllers/auth.controller';
 import interviewRoutes from './routes/interview.routes';
 import resumeRoutes from './routes/resume.routes';
 import adminRoutes from './routes/admin.routes';
@@ -38,7 +39,14 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/ai_intervi
 // ─── Global Middlewares ────────────────────────────────────────────────────────
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5174',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps/Postman) or localhost origins
+    if (!origin || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) || origin === process.env.CLIENT_URL) {
+      callback(null, true);
+    } else {
+      callback(null, true);
+    }
+  },
   credentials: true, // allow cookies (refresh token)
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -80,11 +88,12 @@ const connectAndStart = async () => {
       serverSelectionTimeoutMS: 10000
     });
     console.log('Connected to MongoDB successfully.');
+    await seedDefaultUsers();
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
   } catch (error) {
-    console.error('Database connection failed. Starting server in offline mode...', error);
+    console.error('Database connection failed. Starting server in offline mode...');
     app.listen(PORT, () => {
       console.log(`Server is running in offline mode on port ${PORT}`);
     });
