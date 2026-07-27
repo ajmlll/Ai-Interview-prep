@@ -15,11 +15,12 @@ export const generateInterview = async (
   level: string,
   techStack: string,
   useResume: boolean,
-  jobDescription?: string
+  jobDescription?: string,
+  questionFocus?: string
 ): Promise<Interview> => {
   const result = await apiRequest<Interview>('/interviews', {
     method: 'POST',
-    body: JSON.stringify({ role, level, techStack, useResume, jobDescription })
+    body: JSON.stringify({ role, level, techStack, useResume, jobDescription, questionFocus })
   });
 
   if (!result.data) {
@@ -38,9 +39,6 @@ export const submitAnswer = async (
   questionId: string,
   answer: string
 ): Promise<QuestionFeedback> => {
-  // We need the active interview ID. We derive it from the URL state set by the session.
-  // The server endpoint is /interviews/:id/submit — the interviewId is stored in sessionStorage
-  // by generateInterview so it can be referenced here without changing the call signature.
   const interviewId = sessionStorage.getItem('activeInterviewId');
 
   const result = await apiRequest<{

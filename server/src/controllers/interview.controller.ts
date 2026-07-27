@@ -52,66 +52,66 @@ const callWithRetry = async <T>(
 // Helper: generate mock questions when AI is unconfigured or offline
 const buildMockQuestions = (role: string, level: string, techStack: string): Question[] => {
   const diff: 'easy' | 'medium' | 'hard' =
-    level === 'senior' ? 'hard' : level === 'mid' ? 'medium' : 'easy';
+    level === 'staff' || level === 'senior' ? 'hard' : level === 'mid' ? 'medium' : 'easy';
 
   return [
     {
       id: 'q_1',
-      text: `Tell me about a time you resolved a complex performance bottleneck in a ${techStack} application. What was your optimization strategy?`,
+      text: `Tell me about a time you resolved a complex performance bottleneck in a ${techStack} application for a ${role} role. What was your optimization strategy?`,
       category: 'Behavioral',
       difficulty: diff
     },
     {
       id: 'q_2',
-      text: `Write a TypeScript function to check if a binary search tree is valid. Make sure to handle edge cases.`,
+      text: `Write a clean algorithm in TypeScript/JavaScript to validate a complex data structure. Handle all edge cases.`,
       category: 'Technical',
       difficulty: diff
     },
     {
       id: 'q_3',
-      text: `Design a URL shortening service (like Bitly) to process 10,000 write requests per second. Detail database schemas and hashing schemes.`,
+      text: `Design a high-throughput microservice architecture for ${role} workloads handling 20,000 requests per second. Detail database schemas and load balancing.`,
       category: 'System Design',
       difficulty: diff
     },
     {
       id: 'q_4',
-      text: `Explain how Event Loop and Async I/O work in the context of Node.js or browser engine runtime.`,
+      text: `Explain how async event loops, concurrency, and memory management operate within ${techStack}.`,
       category: 'Technical',
       difficulty: diff
     },
     {
       id: 'q_5',
-      text: `How do you resolve conflict with product managers when negotiating scope changes or deadlines? Describe a real example.`,
+      text: `How do you handle scope changes or tight release deadlines with product stakeholders as a ${level} ${role}? Give a real STAR example.`,
       category: 'Behavioral',
       difficulty: diff
     },
     {
       id: 'q_6',
-      text: `Compare REST APIs vs GraphQL for a large-scale data-heavy ${role} application. When would you choose one over the other?`,
+      text: `Compare architectural patterns for ${role} systems using ${techStack}. When would you choose monolithic vs event-driven microservices?`,
       category: 'Technical',
       difficulty: diff
     },
     {
       id: 'q_7',
-      text: `Design a distributed caching and cache-invalidation layer using Redis for high-frequency database read operations.`,
+      text: `Design a distributed caching and cache-invalidation strategy using Redis for high-frequency database operations in a ${role} system.`,
       category: 'System Design',
       difficulty: diff
     },
     {
       id: 'q_8',
-      text: `How do database indexes (B-Trees vs Hash indexes) improve query performance? What are the write performance trade-offs?`,
+      text: `How do indexes and database partitioning improve query performance for ${role} data models?`,
       category: 'Technical',
       difficulty: diff
     },
     {
       id: 'q_9',
-      text: `Describe a scenario where a critical bug reached production under your watch. How did you triage, fix, and conduct the post-mortem?`,
+      text: `Describe a production incident or critical outage you managed. How did you triage, resolve, and prevent future recurrences?`,
       category: 'Behavioral',
       difficulty: diff
     },
     {
       id: 'q_10',
-      text: `Explain web application security fundamentals: how do CSRF, XSS, and CORS work, and how do you secure JWT storage?`,
+      text: `Explain web & API security fundamentals: CSRF, XSS, CORS, and zero-trust authentication protocols for ${role} services.`,
       category: 'Technical',
       difficulty: diff
     }
@@ -124,9 +124,10 @@ const generateQuestionsWithAI = async (
   level: string,
   techStack: string,
   resumeText: string,
-  jobDescription?: string
+  jobDescription?: string,
+  questionFocus?: string
 ): Promise<Question[]> => {
-  const cacheKey = `interview_q:${crypto.createHash('md5').update(`${role}:${level}:${techStack}:${resumeText.slice(0, 100)}:${(jobDescription || '').slice(0, 100)}`).digest('hex')}`;
+  const cacheKey = `interview_q:${crypto.createHash('md5').update(`${role}:${level}:${techStack}:${questionFocus || 'balanced'}:${resumeText.slice(0, 100)}:${(jobDescription || '').slice(0, 100)}`).digest('hex')}`;
   
   // 1. Check Redis Cache
   try {
@@ -143,9 +144,14 @@ const generateQuestionsWithAI = async (
   const openai = getAiClient();
   const model = process.env.AI_MODEL || 'gemini-2.5-flash-lite';
 
-  const prompt = `Generate exactly 10 interview questions for a candidate applying for role: "${role}", experience level: "${level}", tech stack: "${techStack}".
-${jobDescription ? `Target Job Description Requirements: "${jobDescription.slice(0, 1500)}"` : ''}
+  const prompt = `Generate exactly 10 high-quality real-world interview questions for a candidate applying for the target role: "${role}".
+Experience Seniority Level: "${level}" (where options are junior, mid, senior, staff).
+Tech Stack & Tools: "${techStack}".
+Question Focus Category: "${questionFocus || 'Balanced Mix'}".
+${jobDescription ? `Target Job Description Context: "${jobDescription.slice(0, 1500)}"` : ''}
 ${resumeText ? `Candidate Resume Context: "${resumeText.slice(0, 1500)}"` : ''}
+
+Ensure the questions are realistic, tailored specifically to the ${role} position, and match the seniority level (${level}). Include a mix of technical coding, system design, and STAR behavioral scenarios appropriate for this exact job.
 
 Respond ONLY with a valid JSON object matching this TypeScript format:
 {
@@ -159,13 +165,13 @@ Respond ONLY with a valid JSON object matching this TypeScript format:
   ]
 }`;
 
-  console.log(`Sending question generation request to AI model: "${model}"...`);
+  console.log(`Sending question generation request to AI model: "${model}" for role: "${role}"...`);
 
   const completion = await callWithRetry(() =>
     openai.chat.completions.create({
       model,
       messages: [
-        { role: 'system', content: 'You are a senior technical interviewer. Always return responses in structured JSON.' },
+        { role: 'system', content: 'You are a principal tech lead and hiring manager. Always return responses in structured JSON.' },
         { role: 'user', content: prompt }
       ],
       response_format: { type: 'json_object' }
@@ -234,7 +240,7 @@ Return ONLY a JSON object with:
 // POST /api/v1/interviews & POST /api/v1/interview/generate — generate questions, create session
 export const createInterview = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { role, level, techStack, useResume, jobDescription } = req.body;
+    const { role, level, techStack, useResume, jobDescription, questionFocus } = req.body;
     const userId = req.user?.id || 'offline_user';
 
     let resumeText = '';
@@ -257,7 +263,8 @@ export const createInterview = async (req: Request, res: Response): Promise<void
           level || 'mid',
           techStack || 'React, Node.js',
           resumeText,
-          jobDescription
+          jobDescription,
+          questionFocus
         );
       } catch (err: any) {
         console.error('AI question generation error after retries:', err.message || err);
@@ -273,7 +280,7 @@ export const createInterview = async (req: Request, res: Response): Promise<void
       questions = buildMockQuestions(role || 'Software Engineer', level || 'mid', techStack || 'React, Node.js');
     }
 
-    const title = `${(level || 'mid').charAt(0).toUpperCase() + (level || 'mid').slice(1)} ${role || 'Engineer'} — ${techStack || 'General'} (${useResume ? 'With CV' : 'No CV'})`;
+    const title = `${(level || 'mid').toUpperCase()} ${role || 'Engineer'} — ${techStack || 'General'}`;
 
     if (mongoose.connection.readyState !== 1) {
       const offlineDoc = {
